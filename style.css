@@ -120,9 +120,6 @@ body.touchui .hudbtn{top:calc(96px + var(--sat));bottom:auto}
   box-shadow:inset 0 0 0 3px rgba(255,255,255,.4);left:calc(96px + var(--sal));top:calc(100% - 120px - var(--sab));opacity:.55}
 #stickZone.active #stickBase{opacity:1}
 #stickKnob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:rgba(255,255,255,.85);box-shadow:0 3px 0 rgba(0,0,0,.3)}
-#dashBtn{pointer-events:auto;position:absolute;right:calc(28px + var(--sar));bottom:calc(40px + var(--sab));width:96px;height:96px;border-radius:50%;
-  border:0;background:var(--pink);color:#fff;font-family:var(--display);font-size:1.3rem;box-shadow:0 5px 0 var(--pinkd);touch-action:none}
-#dashBtn.cool{background:#8a7d82;box-shadow:0 5px 0 #5c5357}
 
 #banner{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);font-family:var(--display);color:#fff;text-align:center;
   font-size:clamp(1.6rem,6vw,2.8rem);line-height:1.15;text-shadow:0 3px 0 rgba(0,0,0,.5),0 0 18px rgba(0,0,0,.35);pointer-events:none;width:92%}
@@ -136,3 +133,53 @@ body.touchui .hudbtn{top:calc(96px + var(--sat));bottom:auto}
 .pick h3 small{font-family:var(--body);font-size:.75rem}
 .cell.keyed{background:repeating-conic-gradient(#e6ece9 0 25%,#f7faf8 0 50%) 0 0/16px 16px}
 .cell canvas.keyprev{object-fit:contain}
+
+/* 스킬 바 */
+#muteBtn{left:calc(max(10px,var(--sal)) + 64px)}
+#skills{position:absolute;left:50%;bottom:calc(14px + var(--sab));transform:translateX(-50%);display:flex;gap:10px;align-items:flex-end;pointer-events:none}
+.skb{pointer-events:auto;position:relative;width:74px;height:74px;border-radius:20px;border:0;cursor:pointer;touch-action:none;
+  background:linear-gradient(#fff,#f1e9df);color:var(--ink);box-shadow:0 5px 0 rgba(0,0,0,.35),inset 0 0 0 3px #2a9d8f;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;overflow:hidden;font-family:var(--display);--cd:0}
+.skb.chase{box-shadow:0 5px 0 rgba(0,0,0,.35),inset 0 0 0 3px #ff3b6b}
+.skb.dash{box-shadow:0 5px 0 var(--pinkd),inset 0 0 0 3px var(--pink);background:linear-gradient(#ff7aa6,var(--pink));color:#fff}
+#skI{box-shadow:0 5px 0 rgba(0,0,0,.35),inset 0 0 0 3px #b5179e}
+#skI.has{background:linear-gradient(#ffe8fb,#ffc9f1)}
+#sayBtn{width:56px;height:56px;border-radius:16px;box-shadow:0 4px 0 rgba(0,0,0,.35),inset 0 0 0 3px #8d99ae}
+#sayBtn .ic{font-size:1.3rem}#sayBtn .nm{font-size:.62rem}
+.skb .ic{font-size:1.75rem;line-height:1}
+.skb .nm{font-size:.72rem;font-weight:400;white-space:nowrap}
+.skb .key{position:absolute;top:4px;right:6px;font-style:normal;font-family:var(--body);font-size:.6rem;opacity:.6}
+.skb::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:conic-gradient(rgba(20,28,26,.62) calc(var(--cd) * 360deg),transparent 0)}
+.skb .cdt{position:absolute;inset:0;display:grid;place-items:center;font-size:1.7rem;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.5);z-index:1;pointer-events:none}
+.skb.cool{filter:saturate(.35) brightness(.92)}
+.skb:active{transform:translateY(3px)}
+.skb.ready{animation:ready .5s ease-out}
+.skb.deny{animation:deny .3s}
+@keyframes ready{0%{transform:scale(1)}40%{transform:scale(1.18);filter:brightness(1.3)}100%{transform:scale(1)}}
+@keyframes deny{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+body.touchui #skills{left:auto;right:calc(14px + var(--sar));transform:none;bottom:calc(18px + var(--sab));
+  display:grid;grid-template-columns:auto auto auto;grid-template-areas:". say it" "s0 s1 dash";gap:10px;align-items:end;justify-items:center}
+body.touchui #sayBtn{grid-area:say}body.touchui #skI{grid-area:it}
+body.touchui #sk0{grid-area:s0}body.touchui #sk1{grid-area:s1}
+body.touchui .skb.dash{grid-area:dash;width:96px;height:96px;border-radius:50%}
+body.touchui .skb.dash .ic{font-size:2.2rem}
+body.touchui #stickZone{width:50%}
+@media (max-width:520px){.skb{width:62px;height:62px}body.touchui .skb.dash{width:84px;height:84px}#sayBtn{width:48px;height:48px}}
+@media (min-width:521px) and (max-height:500px){body.touchui #skills{bottom:calc(10px + var(--sab))}}
+#timer.pulse{animation:tpulse .35s}
+@keyframes tpulse{0%{transform:scale(1)}40%{transform:scale(1.35);color:#ff3b6b}100%{transform:scale(1)}}
+#banner.pop{animation:bpop .45s cubic-bezier(.2,1.6,.4,1)}
+@keyframes bpop{0%{transform:translate(-50%,-50%) scale(.4);opacity:0}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+
+/* 맵 고르기 */
+.maps{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mapbtn{border:0;border-radius:14px;padding:10px;background:var(--line);cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;
+  font-family:var(--body);color:var(--ink);box-shadow:inset 0 0 0 2px transparent}
+.mapbtn .mi{font-size:1.6rem;line-height:1}
+.mapbtn b{font-family:var(--display);font-weight:400;font-size:1.05rem}
+.mapbtn small{font-size:.72rem;color:var(--muted)}
+.mapbtn.on{box-shadow:inset 0 0 0 3px var(--pink);background:color-mix(in srgb,var(--pink) 12%,var(--panel))}
+.mapbtn:disabled{cursor:default}
+.mapbtn:disabled:not(.on){opacity:.55}
+@media (prefers-reduced-motion:reduce){.skb.ready,.skb.deny,#timer.pulse,#banner.pop{animation:none}}

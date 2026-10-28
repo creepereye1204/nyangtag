@@ -26,12 +26,19 @@
     </div>
     <div id="role">숨어!</div>
     <button class="hudbtn" id="quitBtn" type="button" aria-label="게임 나가기">나가기</button>
+    <button class="hudbtn" id="muteBtn" type="button" aria-label="소리 켜고 끄기">🔊</button>
+    <div id="skills" hidden>
+      <button class="skb" id="sayBtn" type="button" aria-label="멘트 날리기"><span class="ic">💬</span><b class="nm">멘트</b><i class="key">T</i></button>
+      <button class="skb" id="skI" type="button" aria-label="아이템 쓰기"><span class="ic">🎁</span><b class="nm">아이템</b><i class="key">R</i><span class="cdt"></span></button>
+      <button class="skb" id="sk0" type="button" aria-label="스킬 1"><span class="ic">🧶</span><b class="nm">털뭉치</b><i class="key">Q</i><span class="cdt"></span></button>
+      <button class="skb" id="sk1" type="button" aria-label="스킬 2"><span class="ic">🌿</span><b class="nm">캣닢 가속</b><i class="key">E</i><span class="cdt"></span></button>
+      <button class="skb dash" id="skD" type="button" aria-label="대시"><span class="ic">💨</span><b class="nm">대시</b><i class="key">Space</i><span class="cdt"></span></button>
+    </div>
   </div>
 
   <!-- 모바일 조작 -->
   <div id="touch" hidden>
     <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
-    <button id="dashBtn" type="button">대시</button>
   </div>
 
   <div id="banner" hidden></div>
@@ -57,11 +64,12 @@
       <details class="how">
         <summary>어떻게 해요?</summary>
         <ul>
-          <li>술래팀이 닿으면 <b>얼음</b>, 같은 팀이 닿아 주면 <b>땡</b>.</li>
-          <li>도망팀 둘이 동시에 얼면 술래팀 승, 60초 버티면 도망팀 승.</li>
-          <li>풀숲·이불·상자·커튼·식탁 밑에 들어가면 상대 눈에 안 보여요. 가까이 오면 들켜요.</li>
-          <li>술래는 5초 뒤에 출발해요. 4라운드, 술래는 번갈아.</li>
-          <li>PC: WASD/방향키 이동, Space/Shift 대시 · 폰: 왼쪽 엄지 조이스틱, 오른쪽 대시</li>
+          <li>술래팀이 닿으면 <b>얼음</b>, 같은 팀이 닿아 주면 <b>땡</b>. 도망팀 둘 다 얼면 술래 승, 끝까지 버티면 도망 승.</li>
+          <li>풀숲·이불·상자·차 밑에 숨으면 안 보여요. <b>가만히</b> 있으면 더 안 들키고, 숨어서 움직이면 부스럭거려요.</li>
+          <li>술래는 조금 빠르고 <b>👃 냄새 추적</b>·<b>🐾 덮치기</b>, 도망팀은 <b>🧶 털뭉치 트랩</b>·<b>🌿 캣닢 가속</b>.</li>
+          <li>🎁 상자를 주우면 <b>🦎 보호색</b> · <b>🧱 블럭 쌓기</b> · <b>🐟 생선</b>(쿨타임 초기화) 중 하나!</li>
+          <li>PC: WASD 이동 · Space 대시 · Q/E 스킬 · R 아이템 · T 멘트 · M 소리</li>
+          <li>폰: 왼쪽 엄지 조이스틱, 오른쪽 버튼들 (진동 지원)</li>
         </ul>
       </details>
     </div>
@@ -84,6 +92,7 @@
         <div class="tcol t0"><h2>치즈팀</h2><div class="slots" id="slots0"></div><button class="btn small team0" id="go0" type="button">치즈팀으로</button></div>
         <div class="tcol t1"><h2>고등어팀</h2><div class="slots" id="slots1"></div><button class="btn small team1" id="go1" type="button">고등어팀으로</button></div>
       </div>
+      <div class="maps" id="mapRow"></div>
       <p class="hint" id="lobbyHint">빈 자리는 봇이 채워요.</p>
       <div class="actions row">
         <button class="btn ghost" id="leaveBtn" type="button">나가기</button>
@@ -112,9 +121,9 @@
       <div class="pickhead"><h2>내 고양이 고르기</h2><button class="btn small ghost" id="pickClose" type="button">닫기</button></div>
       <h3>그림 고양이</h3>
       <div class="grid" id="drawGrid"></div>
-      <h3>초록 배경 고양이 밈 <small>(배경 자동으로 지워져요)</small></h3>
+      <h3>초록 배경 고양이 밈 <small>(배경 자동으로 지워져요 · <span id="keyCount"></span>)</small></h3>
       <div class="grid" id="keyGrid"></div>
-      <h3>인터넷 고양이 밈 GIF</h3>
+      <h3>인터넷 고양이 밈 GIF <small id="gifCount"></small></h3>
       <div class="grid" id="gifGrid"></div>
       <h3>GIF 주소로 넣기</h3>
       <div class="join">
