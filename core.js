@@ -1,17 +1,24 @@
 /* 냥태그 게임 코어 — DOM 없음. 방장(호스트)과 혼자 연습 모드가 이 시뮬레이션을 돌린다. */
 (function (root) {
   'use strict';
-  const R = 24, BASE = 250, ROUNDS = 4, SEE = 75, VIEW = 620, SNIFF = 800, WALL = 24;
+  const R = 24, BASE = 250, ROUNDS = 4, SEE = 75, VIEW = 620, WALL = 24;
+  let SNIFF = 800, CH_BONUS = 1;
   const TEAM_NAME = ['치즈팀', '고등어팀'];
-  const CH_SPEED = 1.08, BOOST = 1.45, POUNCE = 2.5, DASH = 2.3;
+  // 밸런스 수치 — node 시뮬레이션(봇끼리 + 숨어 있는 사람 흉내)으로 맞춤
+  const TUNE = {
+    chSpeed: 1.04, boost: 1.45, pounce: 2.1, dash: 2.3, botCh: 0.92, botRun: 0.94, maxThaw: 2,
+    windup: 0.3, pounceDur: 0.36, whiff: 0.6, scare: 0.9, scareSpd: 1.3, dashCdRun: 2.5, dashCdCh: 3.5,
+    immune: 2.5, unfreezeR: 18, boxRespawn: 7, itemMax: 3,
+    cd: { trap: 7, boost: 10, sniff: 22, pounce: 11 },
+  };
 
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const hyp = Math.hypot;
 
   // 스킬 — [술래가 아닐 때, 술래일 때]
   const SKILLS = {
-    run: [{ id: 'trap', name: '털뭉치', cd: 9 }, { id: 'boost', name: '캣닢 가속', cd: 12 }],
-    chase: [{ id: 'sniff', name: '냄새 추적', cd: 15 }, { id: 'pounce', name: '덮치기', cd: 7 }],
+    run: [{ id: 'trap', name: '털뭉치' }, { id: 'boost', name: '캣닢 가속' }],
+    chase: [{ id: 'sniff', name: '냄새 추적' }, { id: 'pounce', name: '덮치기' }],
   };
 
   // 아이템 상자에서 나오는 것 (양 팀 공통)
@@ -70,15 +77,124 @@
     };
   }
 
+
+  /* ---------------- 절차 생성 맵 (시드 고정 → 방장과 손님이 같은 맵) ---------------- */
+  function seeded(seed) { let s = seed % 2147483647; if (s <= 0) s += 2147483646; return () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; }
+  // spec: {w,h,seed, rooms, fixed:{solids,hides}, scatter:[{k,label,w,h,n,hide,area:[x,y,w,h]}], spawn, boxes:n}
+  function genLayout(spec) {
+    const rnd = seeded(spec.seed);
+    const solids = [...(spec.fixed.solids || [])], hides = [...(spec.fixed.hides || [])];
+    const taken = [...solids, ...hides].map(o => ({ x: o.x, y: o.y, w: o.w, h: o.h }));
+    const spawnBoxes = spec.spawn.map(([x, y]) => ({ x: x - 120, y: y - 120, w: 240, h: 240 }));
+    const free = (o, gap) => ![...taken, ...spawnBoxes].some(t => o.x < t.x + t.w + gap && o.x + o.w + gap > t.x && o.y < t.y + t.h + gap && o.y + o.h + gap > t.y);
+    for (const it of spec.scatter) {
+      const [ax, ay, aw, ah] = it.area || [60, 60, spec.w - 120, spec.h - 120];
+      for (let n = 0, tries = 0; n < it.n && tries < it.n * 80; tries++) {
+        const w = it.w * (0.85 + rnd() * 0.3) | 0, h = it.h * (0.85 + rnd() * 0.3) | 0;
+        const o = { x: ax + rnd() * (aw - w) | 0, y: ay + rnd() * (ah - h) | 0, w, h, k: it.k, label: it.label || '' };
+        if (!free(o, it.gap ?? 80)) continue;
+        (it.hide ? hides : solids).push(o); taken.push(o); n++;
+      }
+    }
+    const boxes = [];
+    for (let tries = 0; boxes.length < spec.boxes && tries < 2000; tries++) {
+      const x = 80 + rnd() * (spec.w - 160), y = 80 + rnd() * (spec.h - 160), o = { x: x - 30, y: y - 30, w: 60, h: 60 };
+      if (free(o, 30) && !boxes.some(([bx, by]) => hyp(bx - x, by - y) < 400)) { boxes.push([x | 0, y | 0]); taken.push(o); }
+    }
+    return { rooms: spec.rooms, solids, hides, boxes };
+  }
+  function procMap(def) {
+    return Object.assign(def, {
+      build() { const L = genLayout(def.spec); def.boxes = L.boxes; return L; },
+    });
+  }
   const MAPS = {
     house: {
-      name: '우리 집', desc: '아담한 집 한 채 · 60초', w: 2400, h: 1600, time: 60, hold: 5,
+      name: '우리 집', desc: '아담한 집 한 채 · 50초', w: 2400, h: 1600, time: 50, hold: 7,
       spawn: [[200, 300], [200, 390], [2280, 1240], [2330, 1320]],
       boxes: [[760, 420], [1000, 620], [1900, 480], [1500, 150], [700, 900], [180, 1150], [1450, 1250], [2000, 900]],
       build: house,
     },
+
+    cafe: procMap({
+      name: '캣카페', desc: '방 세 개짜리 고양이 카페 · 55초', w: 2800, h: 1800, time: 55, hold: 6, sniff: 900,
+      spawn: [[180, 200], [180, 300], [2620, 1600], [2620, 1500]], boxes: [],
+      spec: {
+        w: 2800, h: 1800, seed: 77, boxes: 9, spawn: [[180, 250], [2620, 1550]],
+        rooms: [
+          { x: 0, y: 0, w: 1400, h: 1800, k: 'wood', label: '카페' },
+          { x: 1400, y: 0, w: 1400, h: 900, k: 'tile', label: '주방' },
+          { x: 1400, y: 900, w: 1400, h: 900, k: 'carpet', label: '놀이방' },
+        ],
+        fixed: {
+          solids: [
+            ...wallsV(1400, [[0, 380], [540, 1200], [1360, 1800]]),
+            ...wallsH(900, [[1400, 1900], [2060, 2800]]),
+            { x: 500, y: 0, w: 420, h: 80, k: 'counter', label: '주문대' },
+            { x: 2300, y: 0, w: 100, h: 150, k: 'fridge', label: '냉장고' },
+            { x: 1600, y: 0, w: 500, h: 70, k: 'counter', label: '싱크대' },
+          ],
+          hides: [{ x: 0, y: 500, w: 64, h: 300, k: 'curtain', label: '커튼' }, { x: 2736, y: 1000, w: 64, h: 300, k: 'curtain', label: '커튼' }],
+        },
+        scatter: [
+          { k: 'table', label: '테이블', w: 150, h: 90, n: 7, area: [80, 200, 1240, 1500] },
+          { k: 'tower', label: '캣타워', w: 90, h: 120, n: 4, area: [80, 100, 2640, 1600], gap: 100 },
+          { k: 'tablecloth', label: '테이블 밑', w: 210, h: 140, n: 4, hide: true, area: [80, 200, 1240, 1500] },
+          { k: 'blanket', label: '방석', w: 150, h: 120, n: 4, hide: true, area: [1460, 960, 1280, 780] },
+          { k: 'laundry', label: '쿠션 더미', w: 150, h: 110, n: 2, hide: true, area: [1460, 960, 1280, 780] },
+          { k: 'box', label: '상자', w: 130, h: 110, n: 5, hide: true },
+          { k: 'counter', label: '선반', w: 260, h: 70, n: 3, area: [1460, 180, 1280, 660] },
+          { k: 'pot', label: '', w: 60, h: 60, n: 6 },
+        ],
+      },
+    }),
+    snow: procMap({
+      name: '눈 덮인 숲', desc: '전나무 숲과 눈 덮인 덤불 · 60초', w: 3600, h: 2600, time: 60, hold: 6, sniff: 1500, chBonus: 1.03,
+      spawn: [[220, 260], [300, 340], [3380, 2340], [3300, 2260]], boxes: [],
+      spec: {
+        w: 3600, h: 2600, seed: 1213, boxes: 12, spawn: [[260, 300], [3340, 2300]],
+        rooms: [{ x: 0, y: 0, w: 3600, h: 2600, k: 'snow', label: '눈 덮인 숲' }],
+        fixed: {
+          solids: [{ x: 1500, y: 1080, w: 600, h: 380, k: 'pond', label: '얼음 호수' }],
+          hides: [],
+        },
+        scatter: [
+          { k: 'pine', w: 100, h: 100, n: 34, gap: 70 },
+          { k: 'rock', w: 120, h: 90, n: 10 },
+          { k: 'snowman', w: 70, h: 70, n: 5 },
+          { k: 'snowbush', label: '눈 덤불', w: 230, h: 170, n: 10, hide: true },
+          { k: 'tent', label: '텐트 안', w: 220, h: 140, n: 3, hide: true },
+          { k: 'box', label: '썰매 상자', w: 130, h: 110, n: 4, hide: true },
+        ],
+      },
+    }),
+    beach: procMap({
+      name: '여름 해변', desc: '파라솔 · 텐트 · 야자수 해변 · 55초', w: 3600, h: 2400, time: 55, hold: 6, sniff: 1500, chBonus: 1.05,
+      spawn: [[220, 700], [300, 780], [3380, 2200], [3300, 2120]], boxes: [],
+      spec: {
+        w: 3600, h: 2400, seed: 4321, boxes: 11, spawn: [[260, 740], [3340, 2160]],
+        rooms: [
+          { x: 0, y: 0, w: 3600, h: 2400, k: 'sand', label: '해변' },
+          { x: 0, y: 2200, w: 3600, h: 200, k: 'deck', label: '' },
+        ],
+        fixed: {
+          solids: [{ x: 0, y: 0, w: 3600, h: 420, k: 'sea', label: '' }],
+          hides: [],
+        },
+        scatter: [
+          { k: 'palm', w: 100, h: 100, n: 16, area: [60, 500, 3480, 1640] },
+          { k: 'rock', w: 130, h: 90, n: 8, area: [60, 440, 3480, 500], gap: 60 },
+          { k: 'umbrella', w: 80, h: 80, n: 10, area: [60, 600, 3480, 1500] },
+          { k: 'tent', label: '비치 텐트', w: 220, h: 140, n: 4, hide: true, area: [60, 520, 3480, 1640] },
+          { k: 'blanket', label: '돗자리', w: 180, h: 140, n: 3, hide: true, area: [60, 520, 3480, 1640] },
+          { k: 'tube', label: '튜브 더미', w: 240, h: 100, n: 3, hide: true, area: [60, 520, 3480, 1640] },
+          { k: 'box', label: '아이스박스', w: 120, h: 100, n: 4, hide: true, area: [60, 520, 3480, 1640] },
+          { k: 'bush', label: '풀숲', w: 220, h: 170, n: 4, hide: true, area: [60, 520, 3480, 1640] },
+        ],
+      },
+    }),
     town: {
-      name: '고양이 마을', desc: '집 + 시장 + 공원 + 놀이터 오픈월드 · 90초', w: 4800, h: 3200, time: 90, hold: 6,
+      name: '고양이 마을', desc: '집 + 시장 + 공원 + 놀이터 오픈월드 · 75초', w: 4800, h: 3200, time: 75, hold: 6, sniff: 1300, chBonus: 1.03,
       spawn: [[200, 300], [200, 390], [4560, 2620], [4660, 2680]],
       boxes: [[760, 420], [1900, 480], [700, 900], [1450, 1250], [2700, 520], [3900, 520], [3400, 900], [4500, 1000], [3000, 1340],
         [600, 1900], [1200, 2200], [1900, 1950], [400, 2750], [1700, 2900], [3300, 2050], [3700, 2600], [4400, 2300], [2700, 2600]],
@@ -148,7 +264,7 @@
       },
     },
   };
-  const OPAQUE_K = new Set(['wall', 'tree', 'shelf', 'wardrobe', 'fridge', 'tower', 'stall', 'gym']);
+  const OPAQUE_K = new Set(['wall', 'tree', 'shelf', 'wardrobe', 'fridge', 'tower', 'stall', 'gym', 'pine', 'palm', 'rock', 'snowman']);
 
   // 지금 맵 상태 (setMap으로 바뀜)
   let MAP_ID = '', W = 0, H = 0, ROUND_TIME = 60, HOLD = 5, ROOMS = [], SOLIDS = [], HIDES = [], SPAWN = [], OPAQUE = [], BOXES = [];
@@ -210,8 +326,8 @@
     if (!MAPS[id]) id = 'house';
     if (id === MAP_ID) return;
     const M = MAPS[id], b = M.build();
-    MAP_ID = id; W = M.w; H = M.h; ROUND_TIME = M.time; HOLD = M.hold;
-    ROOMS = b.rooms; SOLIDS = b.solids; HIDES = b.hides; SPAWN = M.spawn; BOXES = M.boxes;
+    MAP_ID = id; W = M.w; H = M.h; ROUND_TIME = M.time; HOLD = M.hold; SNIFF = M.sniff || 800; CH_BONUS = M.chBonus || 1;
+    ROOMS = b.rooms; SOLIDS = b.solids; HIDES = b.hides; SPAWN = M.spawn; BOXES = b.boxes || M.boxes;
     OPAQUE = SOLIDS.filter(o => OPAQUE_K.has(o.k));
     for (const h of HIDES) { h.cx = h.x + h.w / 2; h.cy = h.y + h.h / 2; }
     GW = W / CELL; GH = H / CELL; N = GW * GH;
@@ -219,7 +335,7 @@
     for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++)
       walk[gy * GW + gx] = blockedPt(gx * CELL + CELL / 2, gy * CELL + CELL / 2, R * 0.85) ? 0 : 1;
     gScore = new Float32Array(N); came = new Int32Array(N); stamp = new Uint32Array(N); closedS = new Uint32Array(N); curStamp = 0;
-    Object.assign(api, { MAP_ID, W, H, ROUND_TIME, HOLD, ROOMS, SOLIDS, HIDES, SPAWN, BOXES, GW, GH, walk });
+    Object.assign(api, { MAP_ID, SNIFF, W, H, ROUND_TIME, HOLD, ROOMS, SOLIDS, HIDES, SPAWN, BOXES, GW, GH, walk });
   }
 
   /* ---------------- 길찾기 (A*) ---------------- */
@@ -284,43 +400,61 @@
   }
 
   /* ---------------- 게임 상태 ---------------- */
-  function makeCat(slot) {
+  // 팀 인원이 늘어나면 시작 자리를 기본 자리 주변에 펼친다
+  function spawnPos(team, i) {
+    const [bx, by] = SPAWN[team * 2], [ox, oy] = SPAWN[team * 2 + 1];
+    if (i === 0) return [bx, by];
+    if (i === 1) return [ox, oy];
+    const k = i - 2, dx = ((k % 3) - 1) * 70 * (team ? -1 : 1), dy = (Math.floor(k / 3) + 1) * 70 * (by > H / 2 ? -1 : 1);
+    let x = clamp(bx + dx, R + 2, W - R - 2), y = clamp(by + dy, R + 2, H - R - 2);
+    for (let rad = 0; rad < 400 && (blockedPt(x, y, R) || hideAt(x, y) >= 0); rad += 20) {
+      const a = rad * 0.7; x = clamp(bx + dx + Math.cos(a) * rad, R + 2, W - R - 2); y = clamp(by + dy + Math.sin(a) * rad, R + 2, H - R - 2);
+    }
+    return [x, y];
+  }
+  function makeCat(slot, ts) {
+    const team = slot >= ts ? 1 : 0, [sx, sy] = spawnPos(team, slot - team * ts);
     return {
-      id: slot, team: slot >> 1, kind: 'bot', x: SPAWN[slot][0], y: SPAWN[slot][1], vx: 0, vy: 0, r: R,
-      facing: slot >> 1 ? -1 : 1, frozen: false, immune: 0, dashT: 0, dashCd: 0, stun: 0, rootT: 0, boostT: 0, pounceT: 0,
-      sk: [0, 0], item: '', camoT: 0, aimX: slot >> 1 ? -1 : 1, aimY: 0, hidden: false, hideIdx: -1,
+      id: slot, team, kind: 'bot', x: sx, y: sy, vx: 0, vy: 0, r: R,
+      facing: team ? -1 : 1, frozen: false, immune: 0, dashT: 0, dashCd: 0, stun: 0, rootT: 0, boostT: 0, pounceT: 0, windT: 0, pounced: false, scareT: 0,
+      sk: [0, 0], items: [], camoT: 0, aimX: team ? -1 : 1, aimY: 0, hidden: false, hideIdx: -1,
       moving: false, t: Math.random() * 10,
       bot: { dx: 0, dy: 0, cd: 0, path: null, pi: 0, pathT: 0, goal: null, stuckT: 0, lx: 0, ly: 0, wig: 0, dash: false, lostT: 0, sayT: 4 + Math.random() * 8 },
     };
   }
-  function createGame() {
+  function createGame(ts = 2) {
+    ts = clamp(ts | 0, 1, 8);
+    const n = ts * 2;
     return {
-      map: MAP_ID, roundTime: ROUND_TIME,
+      ts,
+      map: MAP_ID, roundTime: Math.round(ROUND_TIME * (ts === 1 ? 0.8 : 1 + 0.07 * (ts - 2))),
       phase: 'lobby', round: 0, scores: [0, 0], chaserTeam: 0, timeLeft: ROUND_TIME, countT: 0, endT: 0, hold: 0,
       roundId: 0, clock: 0, lastWin: -1, lastReason: '', events: [],
-      cats: [0, 1, 2, 3].map(makeCat),
+      cats: Array.from({ length: n }, (_, i) => makeCat(i, ts)),
       mem: [{}, {}], checked: HIDES.map(() => -99), traps: [], trapSeq: 0, reveal: [0, 0], scents: [], blocks: [], boxes: [],
-      seen: [false, false, false, false], spotCd: [0, 0, 0, 0], closeCd: [0, 0, 0, 0],
+      seen: Array(n).fill(false), spotCd: Array(n).fill(0), closeCd: Array(n).fill(0),
       localInput: {},
     };
   }
   function placeCats(g) {
     for (const c of g.cats) {
+      const [sx, sy] = spawnPos(c.team, c.id - c.team * g.ts);
       Object.assign(c, {
-        x: SPAWN[c.id][0], y: SPAWN[c.id][1], vx: 0, vy: 0, frozen: false, immune: 0, dashT: 0, dashCd: 0, stun: 0, rootT: 0,
-        boostT: 0, pounceT: 0, sk: [0, 0], item: '', camoT: 0, facing: c.team ? -1 : 1, aimX: c.team ? -1 : 1, aimY: 0,
+        x: sx, y: sy, vx: 0, vy: 0, frozen: false, immune: 0, dashT: 0, dashCd: 0, stun: 0, rootT: 0,
+        boostT: 0, pounceT: 0, windT: 0, pounced: false, scareT: 0, sk: [0, 0], items: [], camoT: 0, facing: c.team ? -1 : 1, aimX: c.team ? -1 : 1, aimY: 0,
       });
       c.hidden = false; c.hideIdx = -1;
       Object.assign(c.bot, { dx: 0, dy: 0, cd: 0, path: null, pi: 0, pathT: 0, goal: null, stuckT: 0, dash: false, lostT: 0 });
     }
     g.mem = [{}, {}]; g.checked = HIDES.map(() => -99); g.traps = []; g.reveal = [0, 0]; g.scents = []; g.blocks = [];
     g.boxes = BOXES.map(([x, y], i) => ({ u: i, x, y, t: 0 }));
-    g.seen = [false, false, false, false]; g.spotCd = [0, 0, 0, 0]; g.closeCd = [0, 0, 0, 0];
+    g.seen = g.cats.map(() => false); g.spotCd = g.cats.map(() => 0); g.closeCd = g.cats.map(() => 0);
   }
   function startMatch(g) { g.scores = [0, 0]; g.round = 0; beginRound(g); }
   function beginRound(g) {
     g.chaserTeam = g.round % 2; placeCats(g);
-    g.timeLeft = g.roundTime; g.countT = 3.2; g.hold = HOLD; g.phase = 'count'; g.roundId++;
+    g.timeLeft = g.roundTime; g.countT = 3.2;
+    for (const c of g.cats) c.thaws = 0; g.hold = HOLD; g.phase = 'count'; g.roundId++;
     g.events.push({ k: 'round', round: g.round, chaser: g.chaserTeam });
   }
   function endRound(g, winner, reason) {
@@ -363,7 +497,12 @@
   function tickTimers(c, dt) {
     c.dashT = Math.max(0, c.dashT - dt); c.dashCd = Math.max(0, c.dashCd - dt);
     c.stun = Math.max(0, c.stun - dt); c.immune = Math.max(0, c.immune - dt); c.rootT = Math.max(0, c.rootT - dt);
-    c.boostT = Math.max(0, c.boostT - dt); c.pounceT = Math.max(0, c.pounceT - dt); c.camoT = Math.max(0, c.camoT - dt);
+    c.boostT = Math.max(0, c.boostT - dt); c.camoT = Math.max(0, c.camoT - dt); c.scareT = Math.max(0, c.scareT - dt);
+    if (c.windT > 0) { c.windT -= dt; if (c.windT <= 0) { c.windT = 0; if (!c.frozen) { c.pounceT = TUNE.pounceDur; c.pounced = true; } } }
+    if (c.pounceT > 0) {
+      c.pounceT = Math.max(0, c.pounceT - dt);
+      if (c.pounceT === 0 && c.pounced) { c.pounced = false; c.stun = Math.max(c.stun, TUNE.whiff); c.whiff = true; } // 빗나감 → 비틀
+    }
     c.sk[0] = Math.max(0, c.sk[0] - dt); c.sk[1] = Math.max(0, c.sk[1] - dt);
   }
 
@@ -372,13 +511,14 @@
     tickTimers(c, dt);
     if (c.frozen || isHeld(c, g) || c.rootT > 0) { ix = 0; iy = 0; dash = false; }
     const l = hyp(ix, iy); if (l > 1) { ix /= l; iy /= l; }
-    if (ix || iy) { const m = hyp(ix, iy); c.aimX = ix / m; c.aimY = iy / m; }
+    if ((ix || iy) && c.pounceT <= 0) { const m = hyp(ix, iy); c.aimX = ix / m; c.aimY = iy / m; }
+    if (c.windT > 0) { ix *= 0.25; iy *= 0.25; dash = false; } // 웅크리는 중엔 거의 못 움직인다
     if (c.pounceT > 0 && !c.frozen) { ix = c.aimX; iy = c.aimY; }
     let dashed = false;
-    if (dash && c.dashCd <= 0 && (ix || iy)) { c.dashT = 0.2; c.dashCd = 2.5; dashed = true; }
     const isCh = c.team === g.chaserTeam;
-    const sp = BASE * (isCh ? CH_SPEED : 1) * (c.kind === 'bot' ? (isCh ? 0.86 : 0.94) : 1)
-      * (c.dashT > 0 ? DASH : 1) * (c.boostT > 0 ? BOOST : 1) * (c.pounceT > 0 ? POUNCE : 1) * (c.stun > 0 ? 0.35 : 1);
+    if (dash && c.dashCd <= 0 && (ix || iy) && c.pounceT <= 0) { c.dashT = 0.2; c.dashCd = isCh ? TUNE.dashCdCh : TUNE.dashCdRun; dashed = true; }
+    const sp = BASE * (isCh ? TUNE.chSpeed * CH_BONUS : 1) * (c.kind === 'bot' ? (isCh ? TUNE.botCh : TUNE.botRun) : 1)
+      * (c.dashT > 0 ? TUNE.dash : 1) * (c.boostT > 0 ? TUNE.boost : c.scareT > 0 ? TUNE.scareSpd : 1) * (c.pounceT > 0 ? TUNE.pounce : 1) * (c.stun > 0 ? 0.35 : 1);
     const k = 1 - Math.exp(-dt * (c.pounceT > 0 ? 30 : 14));
     c.vx += (ix * sp - c.vx) * k; c.vy += (iy * sp - c.vy) * k;
     if (c.frozen || c.rootT > 0) { c.vx = 0; c.vy = 0; }
@@ -390,10 +530,11 @@
   }
 
   // 스킬 쓰기 — 성공하면 true. 손님도 자기 고양이에 미리 써서 바로 반응하게 한다.
+  function skillCd(g, id) { return id === 'sniff' ? TUNE.cd.sniff * clamp(g.ts / 2, 0.55, 1) : TUNE.cd[id]; }
   function useSkill(g, c, k) {
-    if (g.phase !== 'play' || c.frozen || isHeld(c, g) || !(k === 0 || k === 1) || c.sk[k] > 0) return false;
+    if (g.phase !== 'play' || c.frozen || isHeld(c, g) || !(k === 0 || k === 1) || c.sk[k] > 0 || c.windT > 0 || c.pounceT > 0) return false;
     const s = skillsOf(c, g)[k];
-    c.sk[k] = s.cd;
+    c.sk[k] = skillCd(g, s.id);
     if (s.id === 'trap') {
       const mine = g.traps.filter(t => t.owner === c.id);
       if (mine.length >= 2) g.traps.splice(g.traps.indexOf(mine[0]), 1);
@@ -410,14 +551,14 @@
         g.mem[c.team][o.id] = { x: sc.x, y: sc.y, t: g.clock };
       }
     }
-    else if (s.id === 'pounce') { c.pounceT = 0.42; c.dashT = 0; }
+    else if (s.id === 'pounce') { c.windT = TUNE.windup; c.dashT = 0; }
     g.events.push({ k: 'skill', s: s.id, id: c.id, x: Math.round(c.x), y: Math.round(c.y) });
     return true;
   }
 
   function useItem(g, c) {
-    if (g.phase !== 'play' || c.frozen || isHeld(c, g) || !c.item) return false;
-    const it = c.item; c.item = '';
+    if (g.phase !== 'play' || c.frozen || isHeld(c, g) || !c.items.length) return false;
+    const it = c.items.shift();
     if (it === 'camo') c.camoT = 5;
     else if (it === 'fish') { c.sk[0] = 0; c.sk[1] = 0; c.dashCd = 0; }
     else if (it === 'block') {
@@ -486,16 +627,17 @@
     const chasing = c.team === g.chaserTeam;
     b.sayT -= 0.15;
     if (b.sayT <= 0) { b.sayT = 9 + Math.random() * 12; if (!c.hidden) say(g, c, chasing ? 'chase' : 'run'); }
-    if (c.item === 'fish' && (c.sk[0] > 3 || c.sk[1] > 3)) useItem(g, c);
+    if (c.items[0] === 'fish' && (c.sk[0] > 3 || c.sk[1] > 3)) useItem(g, c);
+    else if (c.items[0] === 'block' && chasing) useItem(g, c); // 술래 봇한테 블럭은 쓸모없으니 버린다
     let dir = [0, 0];
     if (chasing) {
       const prey = g.cats.filter(o => o.team !== c.team && !o.frozen);
-      const partner = g.cats.find(o => o.team === c.team && o !== c);
+      const mates = g.cats.filter(o => o.team === c.team && o !== c);
       let pick = null, ps = 1e9;
       for (const p of prey) {
         const kp = knownPos(g, c.team, p); if (!kp) continue;
         let s = hyp(kp.x - c.x, kp.y - c.y) + (kp.fresh ? 0 : 200);
-        if (prey.length > 1 && hyp(partner.x - kp.x, partner.y - kp.y) < s - 60) s += 160;
+        if (prey.length > 1 && mates.some(m => hyp(m.x - kp.x, m.y - kp.y) < s - 60)) s += 160; // 동료가 더 가까우면 다른 애를 노린다
         if (s < ps) { ps = s; pick = { p, kp }; }
       }
       if (pick) {
@@ -507,8 +649,8 @@
         dir = goTo(c, tx, ty, g);
         const clear = kp.fresh && lineClear(c.x, c.y, p.x, p.y, c.r * 0.8);
         b.dash = clear && d < 140;
-        if (c.item === 'camo' && kp.fresh && d < 450) useItem(g, c);
-        if (clear && d > 60 && d < 210 && c.sk[1] <= 0 && Math.random() < 0.5) {
+        if (c.items[0] === 'camo' && kp.fresh && d < 450) useItem(g, c);
+        if (clear && d > 70 && d < 170 && c.sk[1] <= 0 && Math.random() < 0.35) {
           c.aimX = (p.x - c.x) / d; c.aimY = (p.y - c.y) / d; useSkill(g, c, 1);
         }
       } else {
@@ -519,7 +661,7 @@
           let bi = 0, bs = -1e9;
           HIDES.forEach((h, i) => {
             const s = -hyp(h.cx - c.x, h.cy - c.y) * 0.5 + (g.clock - g.checked[i]) * 20 + Math.random() * 260
-              - (partner.bot.goal && partner.bot.goal.patrol === i ? 500 : 0);
+              - (mates.some(m => m.bot.goal && m.bot.goal.patrol === i) ? 500 : 0);
             if (s > bs) { bs = s; bi = i; }
           });
           g.checked[bi] = g.clock;
@@ -537,7 +679,10 @@
       }
     } else {
       const hunters = g.cats.filter(o => o.team !== c.team);
-      const mate = g.cats.find(o => o.team === c.team && o !== c);
+      const mates = g.cats.filter(o => o.team === c.team && o !== c);
+      // 가장 가까운 얼은 동료
+      let mate = null;
+      for (const m of mates) if (m.frozen && (m.thaws | 0) < TUNE.maxThaw && (!mate || hyp(m.x - c.x, m.y - c.y) < hyp(mate.x - c.x, mate.y - c.y))) mate = m;
       const threats = hunters.map(h => knownPos(g, c.team, h)).filter(Boolean);
       const tdist = (x, y) => threats.reduce((m, t) => Math.min(m, hyp(x - t.x, y - t.y)), 1e9);
       const near = tdist(c.x, c.y);
@@ -550,11 +695,11 @@
         });
         b.path = null; b.goal = null;
         b.dash = near < 95;
-        if (c.item === 'block' && near < 200) useItem(g, c);
-        else if (c.item === 'camo' && near < 300) useItem(g, c);
+        if (c.items[0] === 'block' && near < 200) useItem(g, c);
+        else if (c.items[0] === 'camo' && near < 300) useItem(g, c);
         if (near < 170 && c.sk[1] <= 0) useSkill(g, c, 1);
         else if (near < 260 && near > 70 && c.sk[0] <= 0 && Math.random() < 0.4) useSkill(g, c, 0);
-      } else if (mate.frozen && tdist(mate.x, mate.y) > 220) {
+      } else if (mate && tdist(mate.x, mate.y) > 220 && hyp(mate.x - c.x, mate.y - c.y) < 1400) {
         dir = goTo(c, mate.x, mate.y, g);
       } else if (c.hidden && near > 160) {
         dir = [0, 0];
@@ -562,7 +707,7 @@
         if (!b.goal || b.goal.hide == null || tdist(b.goal.x, b.goal.y) < 200) {
           let bi = 0, bs = -1e9;
           HIDES.forEach((h, i) => {
-            const mateThere = mate.hideIdx === i || (mate.bot.goal && mate.bot.goal.hide === i);
+            const mateThere = mates.some(m => m.hideIdx === i || (m.bot.goal && m.bot.goal.hide === i));
             const s = -hyp(h.cx - c.x, h.cy - c.y) * 0.5 + Math.min(tdist(h.cx, h.cy), 900) * 0.9 - (mateThere ? 400 : 0) + Math.random() * 60;
             if (s > bs) { bs = s; bi = i; }
           });
@@ -605,9 +750,14 @@
     for (const bx of g.boxes) {
       if (bx.t > 0) { bx.t -= dt; continue; }
       for (const c of g.cats) {
-        if (c.frozen || c.item || hyp(c.x - bx.x, c.y - bx.y) > c.r + 22) continue;
-        c.item = ITEMS[(Math.random() * ITEMS.length) | 0].id; bx.t = 14;
-        g.events.push({ k: 'pick', id: c.id, s: c.item, x: bx.x, y: bx.y });
+        if (c.frozen || hyp(c.x - bx.x, c.y - bx.y) > c.r + 22) continue;
+        if (c.items.length >= TUNE.itemMax) {
+          if (!(g.clock - (bx.full || -9) < 2)) { bx.full = g.clock; g.events.push({ k: 'full', id: c.id, x: bx.x, y: bx.y }); }
+          continue;
+        }
+        const it = ITEMS[(Math.random() * ITEMS.length) | 0].id;
+        c.items.push(it); bx.t = TUNE.boxRespawn;
+        g.events.push({ k: 'pick', id: c.id, s: it, x: bx.x, y: bx.y });
         break;
       }
     }
@@ -631,6 +781,7 @@
       }
       if (moveCat(c, g, ix, iy, dash, dt)) g.events.push({ k: 'dash', id: c.id });
     }
+    for (const c of g.cats) if (c.whiff) { c.whiff = false; g.events.push({ k: 'whiff', id: c.id, x: Math.round(c.x), y: Math.round(c.y) }); }
     const chasers = g.cats.filter(c => c.team === g.chaserTeam), runners = g.cats.filter(c => c.team !== g.chaserTeam);
     // 털뭉치 트랩
     for (let i = g.traps.length - 1; i >= 0; i--) {
@@ -639,7 +790,7 @@
       for (const ch of chasers) {
         if (ch.team === t.team || g.hold > 0 || ch.rootT > 0) continue;
         if (hyp(ch.x - t.x, ch.y - t.y) < ch.r + 18) {
-          ch.rootT = 1.0; ch.stun = 1.8; ch.pounceT = 0; ch.vx = ch.vy = 0;
+          ch.rootT = 1.0; ch.stun = 1.8; ch.pounceT = 0; ch.windT = 0; ch.pounced = false; ch.vx = ch.vy = 0;
           g.traps.splice(i, 1);
           g.events.push({ k: 'trap', id: ch.id, by: t.owner, x: Math.round(t.x), y: Math.round(t.y) });
           break;
@@ -650,7 +801,10 @@
     for (const r of runners) {
       g.spotCd[r.id] = Math.max(0, g.spotCd[r.id] - dt); g.closeCd[r.id] = Math.max(0, g.closeCd[r.id] - dt);
       const s = !r.frozen && g.hold <= 0 && teamSees(g, g.chaserTeam, r);
-      if (s && !g.seen[r.id] && g.spotCd[r.id] <= 0) { g.events.push({ k: 'spot', id: r.id, x: Math.round(r.x), y: Math.round(r.y) }); g.spotCd[r.id] = 4; }
+      if (s && !g.seen[r.id] && g.spotCd[r.id] <= 0) {
+        g.events.push({ k: 'spot', id: r.id, x: Math.round(r.x), y: Math.round(r.y) }); g.spotCd[r.id] = 4;
+        r.scareT = TUNE.scare; // 깜짝 놀라서 잠깐 빨라진다
+      }
       g.seen[r.id] = s;
     }
     if (g.hold <= 0) for (const ch of chasers) {
@@ -660,16 +814,16 @@
         if (r.frozen) continue;
         const d = hyp(ch.x - r.x, ch.y - r.y);
         if (r.immune <= 0 && d < reach) {
-          r.frozen = true; r.vx = r.vy = 0; r.boostT = 0; ch.stun = 0.35; ch.pounceT = 0;
-          g.events.push({ k: 'freeze', id: r.id, by: ch.id, x: Math.round(r.x), y: Math.round(r.y), last: runners.every(o => o.frozen) });
+          r.frozen = true; r.vx = r.vy = 0; r.boostT = 0; r.scareT = 0; ch.stun = 0.35; ch.pounceT = 0; ch.pounced = false;
+          g.events.push({ k: 'freeze', id: r.id, by: ch.id, x: Math.round(r.x), y: Math.round(r.y), last: runners.every(o => o.frozen), deep: (r.thaws | 0) >= TUNE.maxThaw });
         } else if (d < reach + 26 && g.closeCd[r.id] <= 0) {
           g.closeCd[r.id] = 3.5; g.events.push({ k: 'close', id: r.id, x: Math.round(r.x), y: Math.round(r.y) });
         }
       }
     }
     for (const a of runners) for (const b of runners) {
-      if (a !== b && !a.frozen && b.frozen && hyp(a.x - b.x, a.y - b.y) < a.r + b.r + 8) {
-        b.frozen = false; b.immune = 1.5;
+      if (a !== b && !a.frozen && b.frozen && (b.thaws | 0) < TUNE.maxThaw && hyp(a.x - b.x, a.y - b.y) < a.r + b.r + TUNE.unfreezeR) {
+        b.frozen = false; b.immune = TUNE.immune; b.thaws = (b.thaws | 0) + 1;
         g.events.push({ k: 'unfreeze', id: b.id, by: a.id, x: Math.round(b.x), y: Math.round(b.y) });
       }
     }
@@ -678,7 +832,7 @@
   }
 
   const api = {
-    R, BASE, ROUNDS, SEE, VIEW, SNIFF, TEAM_NAME, CELL, SKILLS, ITEMS, MAPS, MAP_IDS: Object.keys(MAPS),
+    R, BASE, ROUNDS, SEE, VIEW, TEAM_NAME, skillCd, CELL, SKILLS, ITEMS, TUNE, spawnPos, MAPS, MAP_IDS: Object.keys(MAPS),
     setMap, blockedPt, hideAt, resolve, lineClear, sightClear, astar, createGame, startMatch, beginRound, placeCats, stepGame,
     moveCat, useSkill, useItem, say, skillsOf, visibleTo, teamSees, sniffed, isHeld, tickTimers,
   };

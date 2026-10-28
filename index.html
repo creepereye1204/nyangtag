@@ -30,7 +30,7 @@
     <button class="hudbtn" id="muteBtn" type="button" aria-label="소리 켜고 끄기">🔊</button>
     <div id="skills" hidden>
       <button class="skb" id="sayBtn" type="button" aria-label="멘트 날리기"><span class="ic">💬</span><b class="nm">멘트</b><i class="key">T</i></button>
-      <button class="skb" id="skI" type="button" aria-label="아이템 쓰기"><span class="ic">🎁</span><b class="nm">아이템</b><i class="key">R</i><span class="cdt"></span></button>
+      <button class="skb" id="skI" type="button" aria-label="아이템 쓰기"><span class="ic">🎁</span><b class="nm">아이템</b><i class="key">R</i><span class="cdt"></span><span class="cnt"></span><span class="next"></span></button>
       <button class="skb" id="sk0" type="button" aria-label="스킬 1"><span class="ic">🧶</span><b class="nm">털뭉치</b><i class="key">Q</i><span class="cdt"></span></button>
       <button class="skb" id="sk1" type="button" aria-label="스킬 2"><span class="ic">🌿</span><b class="nm">캣닢 가속</b><i class="key">E</i><span class="cdt"></span></button>
       <button class="skb dash" id="skD" type="button" aria-label="대시"><span class="ic">💨</span><b class="nm">대시</b><i class="key">Space</i><span class="cdt"></span></button>
@@ -49,12 +49,14 @@
   <section class="screen" id="scrTitle">
     <div class="panel title">
       <h1 class="logo">냥태그</h1>
-      <p class="sub">고양이 밈으로 하는 2 대 2 얼음땡</p>
+      <p class="sub">고양이 밈으로 하는 최대 8 대 8 얼음땡</p>
+      <button class="rankbox" id="rankBox" type="button" aria-label="내 랭크 보기"></button>
       <div class="me">
         <button class="avbtn" id="myAvBtn" type="button" aria-label="내 고양이 바꾸기"><span class="av" id="myAv"></span><span class="avlbl">고양이 바꾸기</span></button>
         <label class="field"><span>이름</span><input id="nameIn" maxlength="10" autocomplete="off" placeholder="냥이"></label>
       </div>
       <div class="actions">
+        <button class="btn quick" id="quickBtn" type="button">⚡ 빠른 대전 <small>아무나랑 바로</small></button>
         <button class="btn pink" id="hostBtn" type="button">방 만들기</button>
         <div class="join">
           <input id="codeIn" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="코드 4자리" aria-label="방 코드">
@@ -63,9 +65,10 @@
         <button class="btn ghost" id="soloBtn" type="button">봇이랑 연습하기</button>
       </div>
       <details class="how">
-        <summary>어떻게 해요?</summary>
+        <summary>어떻게 해요? <small id="ver" class="ver"></small></summary>
         <ul>
-          <li>술래팀이 닿으면 <b>얼음</b>, 같은 팀이 닿아 주면 <b>땡</b>. 도망팀 둘 다 얼면 술래 승, 끝까지 버티면 도망 승.</li>
+          <li>술래팀이 닿으면 <b>얼음</b>, 같은 팀이 닿아 주면 <b>땡</b>(라운드당 2번까지, 3번째는 <b>꽁꽁</b>). 도망팀이 다 얼면 술래 승, 끝까지 버티면 도망 승.</li>
+          <li>술래의 덮치기는 <b>빨간 부채꼴</b>로 미리 보여요. 피하면 술래가 <b>헛방</b>으로 비틀! 들키는 순간엔 <b>깜짝 가속</b>.</li>
           <li>풀숲·이불·상자·차 밑에 숨으면 안 보여요. <b>가만히</b> 있으면 더 안 들키고, 숨어서 움직이면 부스럭거려요.</li>
           <li>술래는 조금 빠르고 <b>👃 냄새 추적</b>·<b>🐾 덮치기</b>, 도망팀은 <b>🧶 털뭉치 트랩</b>·<b>🌿 캣닢 가속</b>.</li>
           <li>🎁 상자를 주우면 <b>🦎 보호색</b> · <b>🧱 블럭 쌓기</b> · <b>🐟 생선</b>(쿨타임 초기화) 중 하나!</li>
@@ -93,6 +96,7 @@
         <div class="tcol t0"><h2>치즈팀</h2><div class="slots" id="slots0"></div><button class="btn small team0" id="go0" type="button">치즈팀으로</button></div>
         <div class="tcol t1"><h2>고등어팀</h2><div class="slots" id="slots1"></div><button class="btn small team1" id="go1" type="button">고등어팀으로</button></div>
       </div>
+      <div class="sizes" id="sizeRow"></div>
       <div class="maps" id="mapRow"></div>
       <p class="hint" id="lobbyHint">빈 자리는 봇이 채워요.</p>
       <div class="actions row">
@@ -108,11 +112,20 @@
     <div class="panel over">
       <div class="big" id="overTitle">치즈팀 승리!</div>
       <div class="final" id="overScore">2 : 1</div>
+      <div class="overrank" id="overRank"></div>
       <div class="actions row">
         <button class="btn ghost" id="overLeave" type="button">처음으로</button>
         <button class="btn pink" id="overAgain" type="button">로비로</button>
       </div>
       <p class="hint" id="overHint"></p>
+    </div>
+  </section>
+
+  <!-- 랭크 -->
+  <section class="screen sheet" id="scrRank" hidden>
+    <div class="panel pick rankp">
+      <div class="pickhead"><h2>내 랭크</h2><button class="btn small ghost" id="rankClose" type="button">닫기</button></div>
+      <div id="rankBody"></div>
     </div>
   </section>
 
@@ -137,6 +150,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="gifs.js"></script>
 <script src="core.js"></script>
 <script src="main.js"></script>
 </body>

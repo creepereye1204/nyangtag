@@ -183,3 +183,41 @@ body.touchui #stickZone{width:50%}
 .mapbtn:disabled{cursor:default}
 .mapbtn:disabled:not(.on){opacity:.55}
 @media (prefers-reduced-motion:reduce){.skb.ready,.skb.deny,#timer.pulse,#banner.pop{animation:none}}
+
+#skI .cnt{position:absolute;left:5px;top:3px;font-size:.72rem;font-family:var(--display);color:#b5179e}
+#skI .next{position:absolute;bottom:-1px;right:4px;font-size:.7rem;opacity:.85}
+
+/* 빠른 대전 / 랭크 */
+.btn.quick{background:linear-gradient(135deg,#7b2ff7,#f107a3);color:#fff;box-shadow:0 4px 0 #5a1aa8;display:flex;flex-direction:column;align-items:center;line-height:1.1}
+.btn.quick small{font-family:var(--body);font-size:.72rem;opacity:.9}
+.rankbox{border:0;background:var(--line);border-radius:14px;padding:8px 12px;display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:center;cursor:pointer;text-align:left;color:var(--ink);font-family:var(--body)}
+.rankbox .rinfo{font-size:.8rem;color:var(--muted)}
+.rankbox .lpbar{grid-column:1/-1;height:6px;border-radius:9px;background:rgba(0,0,0,.12);position:relative;overflow:hidden}
+.rankbox .lpbar::after{content:"";position:absolute;inset:0;width:calc(var(--lp) * 100%);background:linear-gradient(90deg,#f9c74f,#f107a3);border-radius:9px}
+.tbadge{display:inline-block;color:#fff;font-family:var(--display);font-size:.85rem;border-radius:99px;padding:3px 10px;white-space:nowrap;text-shadow:0 1px 0 rgba(0,0,0,.35)}
+.tbadge.big{font-size:1.25rem;padding:6px 16px}
+.tierchip{margin-left:auto;flex:none;color:#fff;font-family:var(--display);font-size:.7rem;border-radius:8px;padding:2px 6px}
+.ver{font-family:var(--body);font-size:.7rem;color:var(--muted);margin-left:6px}
+.overrank{display:flex;flex-direction:column;align-items:center;gap:6px}
+.lpd{font-family:var(--display);font-size:1.6rem}.lpd.up{color:#1f9d55}.lpd.down{color:#d62839}
+.promo{font-family:var(--display);font-size:1.3rem;animation:bpop .6s cubic-bezier(.2,1.6,.4,1)}.promo.up{color:#f107a3}.promo.down{color:var(--muted)}
+.rankp .rhead{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.rankp h3{margin:8px 0 2px}
+.hist,.board{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;font-size:.88rem}
+.hist li{padding:6px 10px;border-radius:10px;background:var(--line)}
+.hist li.w{box-shadow:inset 4px 0 0 #1f9d55}.hist li.l{box-shadow:inset 4px 0 0 #d62839}
+.board li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 8px;border-radius:10px;background:var(--line)}
+.board li.me{box-shadow:inset 0 0 0 2px var(--pink)}
+.board b{font-weight:400;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tiers{display:flex;flex-wrap:wrap;gap:6px}
+/* 인원 */
+.sizes{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.szl{font-family:var(--display);font-size:.9rem;color:var(--muted);margin-right:2px}
+.szbtn{border:0;border-radius:10px;padding:6px 9px;background:var(--line);color:var(--ink);font-family:var(--display);cursor:pointer}
+.szbtn.on{background:var(--pink);color:#fff}
+.szbtn:disabled{cursor:default}.szbtn:disabled:not(.on){opacity:.55}
+.slots.many{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.slots.many .slot{padding:4px}.slots.many .slot .av{width:30px;height:30px}.slots.many .slot .tag{display:none}.slots.many .slot .nm{font-size:.82rem}
+.lobby{width:min(560px,100%)}
+.maps{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.lobby{max-height:calc(100dvh - 32px - var(--sat) - var(--sab));overflow:auto}
