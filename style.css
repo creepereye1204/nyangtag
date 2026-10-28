@@ -132,3 +132,7 @@ body.touchui .hudbtn{top:calc(96px + var(--sat));bottom:auto}
 #toast.on{opacity:1}
 @media (prefers-reduced-motion:reduce){#toast{transition:none}}
 #hud::before{content:"";position:absolute;left:0;right:0;top:0;height:calc(110px + var(--sat));background:linear-gradient(rgba(10,18,16,.55),rgba(10,18,16,0))}
+
+.pick h3 small{font-family:var(--body);font-size:.75rem}
+.cell.keyed{background:repeating-conic-gradient(#e6ece9 0 25%,#f7faf8 0 50%) 0 0/16px 16px}
+.cell canvas.keyprev{object-fit:contain}

@@ -28,6 +28,77 @@
     ['pY8jLmZw0ElqvVeRH4', '생각냥'], ['YcFOfbeTcHtVS', '쫓냥'], ['0OfoQd6qgxBwmxjyd2', '공냥'],
   ];
   const gifUrl = id => `https://media.giphy.com/media/${id}/200.gif`;
+  // 초록 배경(크로마키) 고양이 밈 — 게임에서 초록색을 자동으로 지운다
+  const KEY_GIFS = [
+    ['https://media1.tenor.com/m/0kdKXA9qz2oAAAAd/cat-meme-happy-happy-cat.gif', '해피해피냥'],
+    ['https://media1.tenor.com/m/LK30G1If_ZYAAAAd/cat-meme-chipi-chipi-chapa-chapa.gif', '칩칩차파냥'],
+    ['https://media1.tenor.com/m/7I6B6ztMdTMAAAAd/cat-meme-huh-cat.gif', '허냥'],
+    ['https://media1.tenor.com/m/B6P6BybURysAAAAd/cat-meme-overworked.gif', '과로냥'],
+    ['https://media1.tenor.com/m/VbL9n0ioDmUAAAAd/dancing-cat.gif', '손잡고 춤냥'],
+    ['https://media1.tenor.com/m/6StEpuLFSboAAAAd/catdance.gif', '모자 춤냥'],
+    ['https://media1.tenor.com/m/V_Xc_Zmnk6EAAAAd/cat-green-screen.gif', '공중제비냥'],
+    ['https://media.giphy.com/media/rWZrg9jNyE7Vace3Av/200.gif', '빙빙냥'],
+  ];
+
+  /* ---------------- GIF 프레임 분해 + 크로마키 ---------------- */
+  // ImageDecoder로 GIF를 프레임별로 풀고, 테두리가 초록이면 초록을 투명하게 만든다.
+  // 안 되는 브라우저/CORS 막힌 GIF는 원본 <img>로 보여 준다.
+  const anims = new Map(); // url -> {state:'loading'|'ok'|'fail', frames, total, w, h, keyed}
+  function keyFrame(ctx, w, h) {
+    const d = ctx.getImageData(0, 0, w, h), px = d.data;
+    for (let i = 0; i < px.length; i += 4) {
+      const r = px[i], g = px[i + 1], b = px[i + 2], m = Math.max(r, b), gr = g - m;
+      if (g > 70 && gr > 45) px[i + 3] = 0;
+      else if (g > 60 && gr > 12) {
+        px[i + 3] = Math.round(px[i + 3] * clamp(1 - (gr - 12) / 33, 0, 1));
+        px[i + 1] = m; // 초록 번짐 제거
+      }
+    }
+    ctx.putImageData(d, 0, 0);
+  }
+  function isGreenBorder(ctx, w, h) {
+    const d = ctx.getImageData(0, 0, w, h).data; let green = 0, n = 0;
+    const test = (x, y) => { const i = (y * w + x) * 4, r = d[i], g = d[i + 1], b = d[i + 2]; n++; if (g > 90 && g - Math.max(r, b) > 40) green++; };
+    for (let x = 0; x < w; x += 3) { test(x, 0); test(x, h - 1); }
+    for (let y = 0; y < h; y += 3) { test(0, y); test(w - 1, y); }
+    return green / n > 0.45;
+  }
+  async function loadAnim(url) {
+    if (anims.has(url)) return anims.get(url);
+    const a = { state: 'loading' }; anims.set(url, a);
+    try {
+      if (!('ImageDecoder' in window)) throw new Error('no decoder');
+      const res = await fetch(url, { mode: 'cors', referrerPolicy: 'no-referrer' });
+      if (!res.ok) throw new Error('http ' + res.status);
+      const blob = await res.blob();
+      const type = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/gif';
+      if (!(await ImageDecoder.isTypeSupported(type))) throw new Error('type');
+      const dec = new ImageDecoder({ data: await blob.arrayBuffer(), type });
+      await dec.tracks.ready;
+      const count = Math.min(dec.tracks.selectedTrack.frameCount || 1, 90);
+      const frames = []; let total = 0, keyed = null, cw = 0, ch = 0;
+      for (let i = 0; i < count; i++) {
+        const { image } = await dec.decode({ frameIndex: i });
+        if (!cw) { const sc = Math.min(1, 200 / Math.max(image.displayWidth, image.displayHeight)); cw = Math.max(1, Math.round(image.displayWidth * sc)); ch = Math.max(1, Math.round(image.displayHeight * sc)); }
+        const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+        const ctx = cv.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(image, 0, 0, cw, ch);
+        if (keyed === null) keyed = isGreenBorder(ctx, cw, ch);
+        if (keyed) keyFrame(ctx, cw, ch);
+        const dur = Math.max(20, (image.duration || 80000) / 1000);
+        image.close();
+        frames.push({ cv, dur }); total += dur;
+      }
+      dec.close();
+      Object.assign(a, { state: 'ok', frames, total, w: cw, h: ch, keyed });
+    } catch (e) { a.state = 'fail'; }
+    return a;
+  }
+  function animFrame(a, tSec) {
+    let t = (tSec * 1000) % a.total;
+    for (const f of a.frames) { if (t < f.dur) return f.cv; t -= f.dur; }
+    return a.frames[0].cv;
+  }
   function validAv(av) {
     if (typeof av !== 'string') return null;
     if (/^d[0-3]$/.test(av)) return av;
@@ -331,8 +402,22 @@
   let pickReturn = 'scrTitle';
   function openPick(from) {
     pickReturn = from;
-    const dg = $('drawGrid'), gg = $('gifGrid');
+    const dg = $('drawGrid'), gg = $('gifGrid'), kg = $('keyGrid');
     if (!dg.children.length) {
+      KEY_GIFS.forEach(([url, nm]) => {
+        const b = document.createElement('button'); b.className = 'cell keyed'; b.type = 'button'; const av = 'g:' + url; b.dataset.av = av;
+        const im = new Image(); im.alt = nm; im.loading = 'lazy'; im.referrerPolicy = 'no-referrer'; im.src = url;
+        im.onerror = () => { b.hidden = true; };
+        b.append(im); const sp = document.createElement('span'); sp.textContent = nm; b.append(sp);
+        b.onclick = () => choose(av); kg.append(b);
+        loadAnim(url).then(a => {
+          if (a.state !== 'ok' || !a.keyed) return;
+          const cv = document.createElement('canvas'); cv.width = a.w; cv.height = a.h; cv.className = 'keyprev';
+          const ctx = cv.getContext('2d'); const t0 = performance.now();
+          im.replaceWith(cv);
+          (function tick(now) { if (!cv.isConnected) return; if (!$('scrPick').hidden) { ctx.clearRect(0, 0, a.w, a.h); ctx.drawImage(animFrame(a, (now - t0) / 1000), 0, 0); } requestAnimationFrame(tick); })(t0);
+        });
+      });
       STYLES.forEach((s, i) => {
         const b = document.createElement('button'); b.className = 'cell'; b.type = 'button'; b.dataset.av = 'd' + i;
         b.append(avNode('d' + i, i, 84)); const sp = document.createElement('span'); sp.textContent = s.name; b.append(sp);
@@ -437,11 +522,15 @@
       const av = s && s.p ? validAv(s.av) || '' : '';
       if (spriteAv[i] === av) continue;
       spriteAv[i] = av;
-      if (sprites[i]) { sprites[i].remove(); sprites[i] = null; }
+      if (sprites[i]) { if (sprites[i].remove) sprites[i].remove(); sprites[i] = null; }
       if (av.startsWith('g:')) {
-        const im = new Image(); im.alt = ''; im.referrerPolicy = 'no-referrer'; im.src = av.slice(2);
+        const url = av.slice(2);
+        const im = new Image(); im.alt = ''; im.referrerPolicy = 'no-referrer'; im.src = url;
         im.onerror = () => { if (sprites[i] === im) { im.remove(); sprites[i] = null; } };
-        spritesEl.append(im); sprites[i] = im;
+        spritesEl.append(im); sprites[i] = im; im.dataset.url = url;
+        loadAnim(url).then(a => {
+          if (a.state === 'ok' && sprites[i] === im) { im.remove(); sprites[i] = { anim: a, url }; }
+        });
       }
     }
   }
@@ -785,15 +874,24 @@
       if (c === me) { wg.strokeStyle = '#fff'; wg.lineWidth = 2; wg.beginPath(); wg.ellipse(0, 0, c.r * 1.55, c.r * .6, 0, 0, 7); wg.stroke(); }
       wg.restore();
       if (c.dashT > 0) { wg.globalAlpha = .3; wg.fillStyle = TEAM_COL[c.team]; wg.beginPath(); wg.arc(c.x - c.vx * .05, c.y - c.vy * .05, c.r, 0, 7); wg.fill(); wg.globalAlpha = 1; }
-      if (!sprites[c.id] || !app.inGame) {
-        wg.globalAlpha = c.immune > 0 && Math.floor(c.t * 14) % 2 ? .45 : 1;
+      const sp = app.inGame ? sprites[c.id] : null;
+      wg.globalAlpha = c.immune > 0 && Math.floor(c.t * 14) % 2 ? .45 : 1;
+      if (sp && sp.anim) {
+        const a = sp.anim, hh = c.r * (a.keyed ? 3.4 : 3.1), ww = hh * a.w / a.h;
+        const bob = c.moving && !c.frozen ? -Math.abs(Math.sin(c.t * 14)) * 4 : 0;
+        wg.save(); wg.translate(c.x, c.y + c.r * (a.keyed ? .95 : .9) + bob); wg.scale(c.facing, 1);
+        if (c.frozen) wg.filter = 'saturate(.3) hue-rotate(170deg) brightness(1.15)';
+        if (!a.keyed) { wg.fillStyle = 'rgba(255,255,255,.9)'; rr(wg, -ww / 2 - 3, -hh - 3, ww + 6, hh + 6, 8); wg.fill(); }
+        wg.drawImage(animFrame(a, c.t), -ww / 2, -hh, ww, hh);
+        wg.restore();
+      } else if (!sp) {
         drawCat(wg, c.x, c.y, c.r, app.inGame ? styleOf(c.id) : c.id, c.t, c.moving, c.facing, c.frozen);
-        wg.globalAlpha = 1;
       }
+      wg.globalAlpha = 1;
     }
     // GIF 스프라이트
     for (let i = 0; i < 4; i++) {
-      const im = sprites[i]; if (!im) continue;
+      const im = sprites[i]; if (!im || im.anim) continue;
       const c = g.cats[i];
       if (!app.inGame || !c._vis) { im.style.display = 'none'; continue; }
       im.style.display = '';
@@ -824,7 +922,8 @@
       if (app.inGame && app.lobby) { const s = app.lobby.slots[c.id]; label = s.p ? s.name : '봇'; } else label = BOT_NAMES[c.id].replace('봇 ', '');
       if (c === me) label = '나';
       const text = (isCh ? '술래 · ' : '') + label;
-      xg.font = '15px Jua, sans-serif'; const tw = xg.measureText(text).width + 16, bx = c.x - tw / 2, by = c.y - c.r * 2.45;
+      const spr = app.inGame ? sprites[c.id] : null;
+      xg.font = '15px Jua, sans-serif'; const tw = xg.measureText(text).width + 16, bx = c.x - tw / 2, by = c.y - c.r * (spr && spr.anim ? 2.95 : 2.45);
       xg.globalAlpha = c.hidden && c.team === myTeam ? .7 : 1;
       xg.fillStyle = isCh ? '#ff3b6b' : TEAM_COL[c.team]; rr(xg, bx, by, tw, 22, 11); xg.fill();
       xg.fillStyle = '#fff'; xg.textAlign = 'center'; xg.textBaseline = 'middle'; xg.fillText(text, c.x, by + 12);
