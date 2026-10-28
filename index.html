@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#20302b">
+<title>냥태그</title>
+<meta name="description" content="고양이 밈 GIF로 하는 2:2 얼음땡 술래잡기. 방 코드로 친구 초대, 모바일 지원.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="world"></canvas>
+  <div id="sprites"></div>
+  <canvas id="fx"></canvas>
+
+  <!-- 게임 HUD -->
+  <div id="hud" hidden>
+    <div class="hudbar">
+      <div class="hteam a"><b id="sA">0</b><span>치즈팀</span><i class="tagchip" id="cA">술래</i></div>
+      <div class="hmid"><div id="timer">60</div><div id="roundTxt">1 / 4 라운드</div></div>
+      <div class="hteam b"><i class="tagchip" id="cB">술래</i><span>고등어팀</span><b id="sB">0</b></div>
+    </div>
+    <div id="role">숨어!</div>
+    <button class="hudbtn" id="quitBtn" type="button" aria-label="게임 나가기">나가기</button>
+  </div>
+
+  <!-- 모바일 조작 -->
+  <div id="touch" hidden>
+    <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
+    <button id="dashBtn" type="button">대시</button>
+  </div>
+
+  <div id="banner" hidden></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <!-- 타이틀 -->
+  <section class="screen" id="scrTitle">
+    <div class="panel title">
+      <h1 class="logo">냥태그</h1>
+      <p class="sub">고양이 밈으로 하는 2 대 2 얼음땡</p>
+      <div class="me">
+        <button class="avbtn" id="myAvBtn" type="button" aria-label="내 고양이 바꾸기"><span class="av" id="myAv"></span><span class="avlbl">고양이 바꾸기</span></button>
+        <label class="field"><span>이름</span><input id="nameIn" maxlength="10" autocomplete="off" placeholder="냥이"></label>
+      </div>
+      <div class="actions">
+        <button class="btn pink" id="hostBtn" type="button">방 만들기</button>
+        <div class="join">
+          <input id="codeIn" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="코드 4자리" aria-label="방 코드">
+          <button class="btn" id="joinBtn" type="button">참가</button>
+        </div>
+        <button class="btn ghost" id="soloBtn" type="button">봇이랑 연습하기</button>
+      </div>
+      <details class="how">
+        <summary>어떻게 해요?</summary>
+        <ul>
+          <li>술래팀이 닿으면 <b>얼음</b>, 같은 팀이 닿아 주면 <b>땡</b>.</li>
+          <li>도망팀 둘이 동시에 얼면 술래팀 승, 60초 버티면 도망팀 승.</li>
+          <li>풀숲·이불·상자·커튼·식탁 밑에 들어가면 상대 눈에 안 보여요. 가까이 오면 들켜요.</li>
+          <li>술래는 5초 뒤에 출발해요. 4라운드, 술래는 번갈아.</li>
+          <li>PC: WASD/방향키 이동, Space/Shift 대시 · 폰: 왼쪽 엄지 조이스틱, 오른쪽 대시</li>
+        </ul>
+      </details>
+    </div>
+  </section>
+
+  <!-- 로비 -->
+  <section class="screen" id="scrLobby" hidden>
+    <div class="panel lobby">
+      <div class="lobbyhead">
+        <div>
+          <div class="eyebrow" id="lobbyKind">방 코드</div>
+          <div class="code" id="codeOut">----</div>
+        </div>
+        <div class="copyrow" id="copyRow">
+          <button class="btn small" id="copyCode" type="button">코드 복사</button>
+          <button class="btn small" id="copyLink" type="button">초대 링크 복사</button>
+        </div>
+      </div>
+      <div class="teams">
+        <div class="tcol t0"><h2>치즈팀</h2><div class="slots" id="slots0"></div><button class="btn small team0" id="go0" type="button">치즈팀으로</button></div>
+        <div class="tcol t1"><h2>고등어팀</h2><div class="slots" id="slots1"></div><button class="btn small team1" id="go1" type="button">고등어팀으로</button></div>
+      </div>
+      <p class="hint" id="lobbyHint">빈 자리는 봇이 채워요.</p>
+      <div class="actions row">
+        <button class="btn ghost" id="leaveBtn" type="button">나가기</button>
+        <button class="btn ghost" id="lobbyAvBtn" type="button">고양이 바꾸기</button>
+        <button class="btn pink" id="startBtn" type="button">시작!</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 결과 -->
+  <section class="screen" id="scrOver" hidden>
+    <div class="panel over">
+      <div class="big" id="overTitle">치즈팀 승리!</div>
+      <div class="final" id="overScore">2 : 1</div>
+      <div class="actions row">
+        <button class="btn ghost" id="overLeave" type="button">처음으로</button>
+        <button class="btn pink" id="overAgain" type="button">로비로</button>
+      </div>
+      <p class="hint" id="overHint"></p>
+    </div>
+  </section>
+
+  <!-- 고양이 고르기 -->
+  <section class="screen sheet" id="scrPick" hidden>
+    <div class="panel pick">
+      <div class="pickhead"><h2>내 고양이 고르기</h2><button class="btn small ghost" id="pickClose" type="button">닫기</button></div>
+      <h3>그림 고양이</h3>
+      <div class="grid" id="drawGrid"></div>
+      <h3>인터넷 고양이 밈 GIF</h3>
+      <div class="grid" id="gifGrid"></div>
+      <h3>GIF 주소로 넣기</h3>
+      <div class="join">
+        <input id="urlIn" inputmode="url" autocomplete="off" placeholder="https://…gif" aria-label="GIF 주소">
+        <button class="btn" id="urlBtn" type="button">적용</button>
+      </div>
+      <p class="hint">GIPHY나 Tenor에서 GIF를 길게 눌러 ‘이미지 주소 복사’ 후 붙여 넣으면 돼요. 같은 방 친구들한테도 그 GIF로 보여요.</p>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="core.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
