@@ -221,3 +221,57 @@ body.touchui #stickZone{width:50%}
 .lobby{width:min(560px,100%)}
 .maps{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .lobby{max-height:calc(100dvh - 32px - var(--sat) - var(--sab));overflow:auto}
+
+.btabs{display:flex;gap:6px;flex-wrap:wrap}.btabs .szbtn.on{background:var(--pink);color:#fff}
+.board li{display:grid;grid-template-columns:1fr auto;grid-template-areas:"n b" "s b"}
+.board li b{grid-area:n}.board li small{grid-area:s;font-size:.72rem;color:var(--muted)}.board li .tbadge{grid-area:b}
+
+/* 모드 */
+.modes{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px}
+.modebtn,.clsbtn{border:0;border-radius:12px;padding:8px;background:var(--line);cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;font-family:var(--body);color:var(--ink)}
+.modebtn .mi,.clsbtn .mi{font-size:1.3rem;line-height:1}
+.modebtn b,.clsbtn b{font-family:var(--display);font-weight:400;font-size:.95rem}
+.modebtn small,.clsbtn small{font-size:.68rem;color:var(--muted)}
+.modebtn.on,.clsbtn.on{box-shadow:inset 0 0 0 3px #7b2ff7;background:color-mix(in srgb,#7b2ff7 12%,var(--panel))}
+.modebtn:disabled{cursor:default}.modebtn:disabled:not(.on){opacity:.55}
+.clss{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+@media (max-width:520px){.clss{grid-template-columns:repeat(2,1fr)}}
+.clschip{flex:none;font-size:1rem}
+#feed{position:absolute;right:max(12px,var(--sar));top:calc(70px + var(--sat));display:flex;flex-direction:column;gap:4px;align-items:flex-end;pointer-events:none}
+body.touchui #feed{top:calc(250px + var(--sat))}
+#feed .fd{background:rgba(20,28,26,.72);color:#fff;border-radius:10px;padding:4px 10px;font-size:.82rem;font-family:var(--body);transition:opacity .6s}
+#feed .fd b{font-family:var(--display);font-weight:400}
+#feed .fd.out{opacity:0}
+.skb.fire{display:none;background:linear-gradient(#4cc9f0,#3a86ff);color:#fff;box-shadow:0 5px 0 #23549c,inset 0 0 0 3px #a9def9}
+body.touchui.combat .skb.fire{display:flex;grid-area:fire;width:96px;height:96px;border-radius:50%}
+body.touchui.combat #skills{grid-template-areas:". say it" "s0 s1 fire" ". . dash"}
+body.touchui.combat .skb.dash{width:66px;height:66px}
+body.combat:not(.touchui) #world,body.combat:not(.touchui) #app{cursor:none}
+body.zmode .hteam span{visibility:hidden}
+body.zmode .hteam.a span::after{content:"웨이브";visibility:visible}
+
+/* 채팅 */
+#chatBox{position:absolute;left:max(10px,var(--sal));bottom:calc(56px + var(--sab));width:min(340px,calc(100% - 20px));z-index:6;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+body.touchui #chatBox{bottom:auto;top:calc(140px + var(--sat));width:min(300px,55%)}
+#chatLog{display:flex;flex-direction:column;gap:3px}
+#chatLog .cm{background:rgba(20,28,26,.7);color:#fff;border-radius:10px;padding:4px 10px;font-size:.85rem;width:fit-content;max-width:100%;word-break:break-all;transition:opacity 1s}
+#chatLog .cm b{font-family:var(--display);font-weight:400;margin-right:2px}
+#chatLog .cm.old{opacity:0}
+#chatBox.open #chatLog .cm.old{opacity:.85}
+#chatIn{pointer-events:auto;display:flex;flex-direction:column;gap:6px;background:rgba(20,28,26,.85);padding:8px;border-radius:12px}
+#chatIn .crow{display:flex;gap:6px}#chatIn input{background:#fff;color:#1e2a26;padding:7px 10px;font-size:.95rem}
+#chatQuick{display:flex;flex-wrap:wrap;gap:4px}
+#chatQuick button{border:0;border-radius:99px;padding:4px 10px;background:#fff;color:#1e2a26;font-size:.8rem;cursor:pointer}
+.chatbtn{pointer-events:auto;align-self:flex-start;border:0;border-radius:10px;background:rgba(20,28,26,.6);color:#fff;font-family:var(--body);font-size:.8rem;padding:6px 10px;cursor:pointer}
+#chatBox.open .chatbtn{display:none}
+/* 가로로 눕힌 폰: 버튼을 작게 */
+@media (max-height:500px){
+  body.touchui #skills{gap:6px;bottom:calc(8px + var(--sab))}
+  body.touchui .skb{width:54px;height:54px;border-radius:14px}
+  body.touchui .skb .ic{font-size:1.3rem}body.touchui .skb .nm{font-size:.58rem}
+  body.touchui #sayBtn{width:42px;height:42px}
+  body.touchui .skb.dash{width:68px;height:68px}
+  body.touchui.combat .skb.fire{width:76px;height:76px}
+  body.touchui.combat .skb.dash{width:52px;height:52px}
+  body.touchui #chatBox{top:calc(150px + var(--sat))}
+}

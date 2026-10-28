@@ -26,6 +26,7 @@
       <div class="hteam b"><i class="tagchip" id="cB">술래</i><span>고등어팀</span><b id="sB">0</b></div>
     </div>
     <div id="role">숨어!</div>
+    <div id="feed"></div>
     <button class="hudbtn" id="quitBtn" type="button" aria-label="게임 나가기">나가기</button>
     <button class="hudbtn" id="muteBtn" type="button" aria-label="소리 켜고 끄기">🔊</button>
     <div id="skills" hidden>
@@ -33,6 +34,7 @@
       <button class="skb" id="skI" type="button" aria-label="아이템 쓰기"><span class="ic">🎁</span><b class="nm">아이템</b><i class="key">R</i><span class="cdt"></span><span class="cnt"></span><span class="next"></span></button>
       <button class="skb" id="sk0" type="button" aria-label="스킬 1"><span class="ic">🧶</span><b class="nm">털뭉치</b><i class="key">Q</i><span class="cdt"></span></button>
       <button class="skb" id="sk1" type="button" aria-label="스킬 2"><span class="ic">🌿</span><b class="nm">캣닢 가속</b><i class="key">E</i><span class="cdt"></span></button>
+      <button class="skb fire" id="fireBtn" type="button" aria-label="발사"><span class="ic">💧</span><b class="nm">발사</b></button>
       <button class="skb dash" id="skD" type="button" aria-label="대시"><span class="ic">💨</span><b class="nm">대시</b><i class="key">Space</i><span class="cdt"></span></button>
     </div>
   </div>
@@ -40,6 +42,15 @@
   <!-- 모바일 조작 -->
   <div id="touch" hidden>
     <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
+  </div>
+
+  <div id="chatBox" hidden>
+    <div id="chatLog" aria-live="polite"></div>
+    <form id="chatIn" hidden>
+      <div id="chatQuick"></div>
+      <div class="crow"><input id="chatText" maxlength="60" autocomplete="off" placeholder="메시지 (Enter)" aria-label="채팅 메시지"><button class="btn small" type="submit">보내기</button></div>
+    </form>
+    <button class="chatbtn" id="chatBtn" type="button" aria-label="채팅 열기">💬 채팅</button>
   </div>
 
   <div id="banner" hidden></div>
@@ -72,7 +83,8 @@
           <li>풀숲·이불·상자·차 밑에 숨으면 안 보여요. <b>가만히</b> 있으면 더 안 들키고, 숨어서 움직이면 부스럭거려요.</li>
           <li>술래는 조금 빠르고 <b>👃 냄새 추적</b>·<b>🐾 덮치기</b>, 도망팀은 <b>🧶 털뭉치 트랩</b>·<b>🌿 캣닢 가속</b>.</li>
           <li>🎁 상자를 주우면 <b>🦎 보호색</b> · <b>🧱 블럭 쌓기</b> · <b>🐟 생선</b>(쿨타임 초기화) 중 하나!</li>
-          <li>PC: WASD 이동 · Space 대시 · Q/E 스킬 · R 아이템 · T 멘트 · M 소리</li>
+          <li>모드: 🧊 얼음땡 · 🔫 냥냥 총싸움 · 🤖 로봇청소기 습격(협동) · 🦸 냥버워치(클래스 점령전)</li>
+          <li>PC: WASD 이동 · Space 대시 · Q/E 스킬 · R 아이템 · T 멘트 · Enter 채팅 · M 소리 · 총싸움 모드는 마우스 조준·클릭 발사</li>
           <li>폰: 왼쪽 엄지 조이스틱, 오른쪽 버튼들 (진동 지원)</li>
         </ul>
       </details>
@@ -96,6 +108,8 @@
         <div class="tcol t0"><h2>치즈팀</h2><div class="slots" id="slots0"></div><button class="btn small team0" id="go0" type="button">치즈팀으로</button></div>
         <div class="tcol t1"><h2>고등어팀</h2><div class="slots" id="slots1"></div><button class="btn small team1" id="go1" type="button">고등어팀으로</button></div>
       </div>
+      <div class="modes" id="modeRow"></div>
+      <div class="clss" id="clsRow" hidden></div>
       <div class="sizes" id="sizeRow"></div>
       <div class="maps" id="mapRow"></div>
       <p class="hint" id="lobbyHint">빈 자리는 봇이 채워요.</p>

@@ -1,7 +1,8 @@
 /* 냥태그 게임 코어 — DOM 없음. 방장(호스트)과 혼자 연습 모드가 이 시뮬레이션을 돌린다. */
 (function (root) {
   'use strict';
-  const R = 24, BASE = 250, ROUNDS = 4, SEE = 75, VIEW = 620, WALL = 24;
+  const R = 24, BASE = 250, ROUNDS = 4, SEE = 75, WALL = 24;
+  let VIEW = 620;
   let SNIFF = 800, CH_BONUS = 1;
   const TEAM_NAME = ['치즈팀', '고등어팀'];
   // 밸런스 수치 — node 시뮬레이션(봇끼리 + 숨어 있는 사람 흉내)으로 맞춤
@@ -19,6 +20,35 @@
   const SKILLS = {
     run: [{ id: 'trap', name: '털뭉치' }, { id: 'boost', name: '캣닢 가속' }],
     chase: [{ id: 'sniff', name: '냄새 추적' }, { id: 'pounce', name: '덮치기' }],
+  };
+
+  // 게임 모드
+  const MODES = {
+    tag: { name: '얼음땡', icon: '🧊', desc: '술래잡기 + 숨바꼭질', rounds: 4 },
+    gun: { name: '냥냥 총싸움', icon: '🔫', desc: '물총 팀 데스매치 · 먼저 목표 킬', rounds: 1, time: 150 },
+    zombie: { name: '로봇청소기 습격', icon: '🤖', desc: '다 같이 웨이브 버티기 (협동)', rounds: 1, time: 999 },
+    hero: { name: '냥버워치', icon: '🦸', desc: '클래스 골라 점령전', rounds: 1, time: 180 },
+  };
+  // 물총 종류: 연사 간격, 피해, 탄속, 퍼짐, 발 수, 사거리(초)
+  const WEAPONS = {
+    pistol: { name: '물총', rate: 0.28, dmg: 14, spd: 900, spread: 0.05, n: 1, life: 0.6 },
+    shotgun: { name: '산탄 물총', rate: 0.8, dmg: 10, spd: 820, spread: 0.32, n: 6, life: 0.35 },
+    rapid: { name: '기관 물총', rate: 0.09, dmg: 7, spd: 950, spread: 0.12, n: 1, life: 0.55 },
+    sniper: { name: '저격 물총', rate: 1.1, dmg: 58, spd: 1800, spread: 0, n: 1, life: 0.8 },
+    churu: { name: '츄르 총', rate: 0.22, dmg: 9, spd: 850, spread: 0.06, n: 1, life: 0.55 },
+  };
+  const WEAPON_IDS = Object.keys(WEAPONS);
+  // 냥버워치 클래스 (전부 고양이 오리지널)
+  const CLASSES = {
+    tank: { name: '방석냥', icon: '🛡️', hp: 260, spd: 0.9, wpn: 'shotgun', skill: { id: 'shield', name: '방석 방패', cd: 9 } },
+    dps: { name: '돌격냥', icon: '⚡', hp: 150, spd: 1.05, wpn: 'rapid', skill: { id: 'nade', name: '털뭉치 폭탄', cd: 7 } },
+    snipe: { name: '저격냥', icon: '🎯', hp: 110, spd: 1, wpn: 'sniper', skill: { id: 'camo', name: '보호색', cd: 12 } },
+    heal: { name: '츄르냥', icon: '💗', hp: 140, spd: 1, wpn: 'churu', skill: { id: 'healburst', name: '츄르 폭탄', cd: 10 } },
+  };
+  const CLASS_IDS = Object.keys(CLASSES);
+  const CSKILLS = {
+    gun: [{ id: 'nade', name: '털뭉치 폭탄', cd: 8 }, { id: 'boost', name: '캣닢 가속', cd: 10 }],
+    zombie: [{ id: 'nade', name: '털뭉치 폭탄', cd: 7 }, { id: 'wall', name: '바리케이드', cd: 6 }],
   };
 
   // 아이템 상자에서 나오는 것 (양 팀 공통)
@@ -116,6 +146,54 @@
       build: house,
     },
 
+
+    hanok: {
+      name: '한옥 야시장', desc: '청사초롱 밤거리 · 개울과 다리 · 65초', w: 3600, h: 2600, time: 65, hold: 6, sniff: 1100, view: 460, night: true,
+      spawn: [[300, 1020], [400, 1080], [3330, 2460], [3230, 2400]],
+      boxes: [[960, 810], [1980, 1020], [2700, 1060], [3480, 1080], [600, 1640], [1560, 1800], [2560, 1800], [3420, 1700], [700, 2300], [2000, 2420], [2950, 2300], [120, 2480]],
+      build() {
+        const B = (x, y, w, h, k, label = '') => ({ x, y, w, h, k, label });
+        const tree = (x, y) => B(x, y, 110, 110, 'cherry');
+        const stalls = [], hides = [];
+        const foods = ['떡볶이', '어묵', '붕어빵', '호떡', '닭꼬치', '솜사탕', '군고구마', '식혜'];
+        [300, 1300, 2300].forEach((x, i) => { stalls.push(B(x, 1440, 260, 100, 'pocha', foods[i])); hides.push(B(x + 300, 1440, 230, 140, 'tent', '포장마차 천막')); });
+        [800, 1800, 2800].forEach((x, i) => { stalls.push(B(x, 2000, 260, 100, 'pocha', foods[i + 3])); hides.push(B(x - 290, 1990, 230, 140, 'tent', '포장마차 천막')); });
+        stalls.push(B(3300, 1440, 240, 100, 'pocha', foods[6]), B(3300, 2000, 240, 100, 'pocha', foods[7]));
+        return {
+          rooms: [
+            { x: 0, y: 0, w: 3600, h: 1180, k: 'madang', label: '한옥 마을' },
+            { x: 0, y: 1180, w: 3600, h: 160, k: 'madang', label: '' },
+            { x: 0, y: 1340, w: 3600, h: 900, k: 'baksuk', label: '야시장' },
+            { x: 0, y: 2240, w: 3600, h: 360, k: 'grass', label: '' },
+          ],
+          solids: [
+            // 개울 (다리 세 군데로만 건넌다)
+            B(0, 1180, 700, 160, 'stream'), B(860, 1180, 1040, 160, 'stream'), B(2060, 1180, 940, 160, 'stream'), B(3160, 1180, 440, 160, 'stream'),
+            // 한옥 네 채
+            B(160, 140, 640, 320, 'hanok', '안채'), B(1100, 110, 720, 360, 'hanok', '큰집'), B(2160, 150, 600, 300, 'hanok', '사랑채'), B(2980, 190, 500, 330, 'hanok', '찻집'),
+            // 돌담 (문 있음)
+            ...wallsH(600, [[120, 420], [580, 900]], 'dam'), ...wallsH(600, [[1060, 1380], [1540, 1880]], 'dam'),
+            ...wallsH(560, [[2120, 2380], [2540, 2820]], 'dam'), ...wallsV(2900, [[120, 360], [520, 700]], 'dam'),
+            tree(920, 640), tree(1960, 700), tree(2780, 830), tree(3460, 640), tree(60, 2280), tree(1240, 2420), tree(3100, 2470),
+            ...stalls,
+          ],
+          hides: [
+            ...hides,
+            B(260, 680, 180, 130, 'jar', '장독대'), B(1450, 690, 180, 130, 'jar', '장독대'), B(2400, 2350, 180, 130, 'jar', '장독대'),
+            B(1180, 860, 220, 150, 'pyeong', '평상 밑'), B(2300, 760, 220, 150, 'pyeong', '평상 밑'),
+            B(2500, 640, 160, 130, 'hay', '짚더미'), B(520, 2360, 170, 140, 'hay', '짚더미'),
+            B(3180, 640, 240, 260, 'bamboo', '대나무숲'), B(40, 760, 200, 300, 'bamboo', '대나무숲'), B(1560, 2300, 300, 220, 'bamboo', '대나무숲'), B(3360, 2240, 220, 170, 'bamboo', '대나무숲'),
+          ],
+          // 밤 조명: 청사초롱 (x, y, 반지름)
+          lights: [
+            ...[200, 600, 1000, 1400, 1800, 2200, 2600, 3000, 3400].map(x => [x, 1620, 260]),
+            ...[400, 900, 1400, 1900, 2400, 2900, 3400].map(x => [x, 1940, 240]),
+            [780, 1260, 200], [1980, 1260, 200], [3080, 1260, 200],
+            [480, 520, 220], [1460, 520, 220], [2460, 500, 220], [3230, 560, 200], [1000, 2450, 200], [2200, 2450, 200],
+          ],
+        };
+      },
+    },
     cafe: procMap({
       name: '캣카페', desc: '방 세 개짜리 고양이 카페 · 55초', w: 2800, h: 1800, time: 55, hold: 6, sniff: 900,
       spawn: [[180, 200], [180, 300], [2620, 1600], [2620, 1500]], boxes: [],
@@ -264,7 +342,7 @@
       },
     },
   };
-  const OPAQUE_K = new Set(['wall', 'tree', 'shelf', 'wardrobe', 'fridge', 'tower', 'stall', 'gym', 'pine', 'palm', 'rock', 'snowman']);
+  const OPAQUE_K = new Set(['wall', 'tree', 'shelf', 'wardrobe', 'fridge', 'tower', 'stall', 'gym', 'pine', 'palm', 'rock', 'snowman', 'hanok', 'dam', 'cherry', 'pocha']);
 
   // 지금 맵 상태 (setMap으로 바뀜)
   let MAP_ID = '', W = 0, H = 0, ROUND_TIME = 60, HOLD = 5, ROOMS = [], SOLIDS = [], HIDES = [], SPAWN = [], OPAQUE = [], BOXES = [];
@@ -326,7 +404,7 @@
     if (!MAPS[id]) id = 'house';
     if (id === MAP_ID) return;
     const M = MAPS[id], b = M.build();
-    MAP_ID = id; W = M.w; H = M.h; ROUND_TIME = M.time; HOLD = M.hold; SNIFF = M.sniff || 800; CH_BONUS = M.chBonus || 1;
+    MAP_ID = id; W = M.w; H = M.h; ROUND_TIME = M.time; HOLD = M.hold; SNIFF = M.sniff || 800; CH_BONUS = M.chBonus || 1; VIEW = M.view || 620;
     ROOMS = b.rooms; SOLIDS = b.solids; HIDES = b.hides; SPAWN = M.spawn; BOXES = b.boxes || M.boxes;
     OPAQUE = SOLIDS.filter(o => OPAQUE_K.has(o.k));
     for (const h of HIDES) { h.cx = h.x + h.w / 2; h.cy = h.y + h.h / 2; }
@@ -335,7 +413,7 @@
     for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++)
       walk[gy * GW + gx] = blockedPt(gx * CELL + CELL / 2, gy * CELL + CELL / 2, R * 0.85) ? 0 : 1;
     gScore = new Float32Array(N); came = new Int32Array(N); stamp = new Uint32Array(N); closedS = new Uint32Array(N); curStamp = 0;
-    Object.assign(api, { MAP_ID, SNIFF, W, H, ROUND_TIME, HOLD, ROOMS, SOLIDS, HIDES, SPAWN, BOXES, GW, GH, walk });
+    Object.assign(api, { MAP_ID, SNIFF, VIEW, NIGHT: !!M.night, LIGHTS: b.lights || [], W, H, ROUND_TIME, HOLD, ROOMS, SOLIDS, HIDES, SPAWN, BOXES, GW, GH, walk });
   }
 
   /* ---------------- 길찾기 (A*) ---------------- */
@@ -412,8 +490,8 @@
     }
     return [x, y];
   }
-  function makeCat(slot, ts) {
-    const team = slot >= ts ? 1 : 0, [sx, sy] = spawnPos(team, slot - team * ts);
+  function makeCat(slot, ts, mode) {
+    const team = mode === 'zombie' ? 0 : slot >= ts ? 1 : 0, [sx, sy] = spawnPos(team, mode === 'zombie' ? slot : slot - team * ts);
     return {
       id: slot, team, kind: 'bot', x: sx, y: sy, vx: 0, vy: 0, r: R,
       facing: team ? -1 : 1, frozen: false, immune: 0, dashT: 0, dashCd: 0, stun: 0, rootT: 0, boostT: 0, pounceT: 0, windT: 0, pounced: false, scareT: 0,
@@ -422,15 +500,16 @@
       bot: { dx: 0, dy: 0, cd: 0, path: null, pi: 0, pathT: 0, goal: null, stuckT: 0, lx: 0, ly: 0, wig: 0, dash: false, lostT: 0, sayT: 4 + Math.random() * 8 },
     };
   }
-  function createGame(ts = 2) {
-    ts = clamp(ts | 0, 1, 8);
-    const n = ts * 2;
+  function createGame(ts = 2, mode = 'tag') {
+    ts = clamp(ts | 0, 1, 8); if (!MODES[mode]) mode = 'tag';
+    const n = ts * 2, M = MODES[mode];
     return {
-      ts,
-      map: MAP_ID, roundTime: Math.round(ROUND_TIME * (ts === 1 ? 0.8 : 1 + 0.07 * (ts - 2))),
+      ts, mode, rounds: M.rounds,
+      map: MAP_ID, roundTime: mode === 'tag' ? Math.round(ROUND_TIME * (ts === 1 ? 0.8 : 1 + 0.07 * (ts - 2))) : M.time,
+      shots: [], nades: [], mobs: [], mobSeq: 0, wave: 0, waveLeft: 0, spawnT: 0, breakT: 0, cp: null, killGoal: Math.max(5, ts * 5), flowT: 0,
       phase: 'lobby', round: 0, scores: [0, 0], chaserTeam: 0, timeLeft: ROUND_TIME, countT: 0, endT: 0, hold: 0,
       roundId: 0, clock: 0, lastWin: -1, lastReason: '', events: [],
-      cats: Array.from({ length: n }, (_, i) => makeCat(i, ts)),
+      cats: Array.from({ length: n }, (_, i) => makeCat(i, ts, mode)),
       mem: [{}, {}], checked: HIDES.map(() => -99), traps: [], trapSeq: 0, reveal: [0, 0], scents: [], blocks: [], boxes: [],
       seen: Array(n).fill(false), spotCd: Array(n).fill(0), closeCd: Array(n).fill(0),
       localInput: {},
@@ -438,7 +517,8 @@
   }
   function placeCats(g) {
     for (const c of g.cats) {
-      const [sx, sy] = spawnPos(c.team, c.id - c.team * g.ts);
+      const [sx, sy] = spawnPos(c.team, g.mode === 'zombie' ? c.id : c.id - c.team * g.ts);
+      initCombat(g, c);
       Object.assign(c, {
         x: sx, y: sy, vx: 0, vy: 0, frozen: false, immune: 0, dashT: 0, dashCd: 0, stun: 0, rootT: 0,
         boostT: 0, pounceT: 0, windT: 0, pounced: false, scareT: 0, sk: [0, 0], items: [], camoT: 0, facing: c.team ? -1 : 1, aimX: c.team ? -1 : 1, aimY: 0,
@@ -449,25 +529,30 @@
     g.mem = [{}, {}]; g.checked = HIDES.map(() => -99); g.traps = []; g.reveal = [0, 0]; g.scents = []; g.blocks = [];
     g.boxes = BOXES.map(([x, y], i) => ({ u: i, x, y, t: 0 }));
     g.seen = g.cats.map(() => false); g.spotCd = g.cats.map(() => 0); g.closeCd = g.cats.map(() => 0);
+    g.shots = []; g.nades = []; g.mobs = [];
+    if (g.mode === 'hero') { const [x, y] = cpSpot(); g.cp = { x, y, r: 170, prog: [0, 0], owner: -1 }; }
+    if (g.mode === 'zombie') { g.wave = 0; g.breakT = 3; g.waveLeft = 0; }
   }
   function startMatch(g) { g.scores = [0, 0]; g.round = 0; beginRound(g); }
   function beginRound(g) {
-    g.chaserTeam = g.round % 2; placeCats(g);
+    g.chaserTeam = g.mode === 'tag' ? g.round % 2 : -1; placeCats(g);
     g.timeLeft = g.roundTime; g.countT = 3.2;
-    for (const c of g.cats) c.thaws = 0; g.hold = HOLD; g.phase = 'count'; g.roundId++;
+    for (const c of g.cats) c.thaws = 0; g.hold = g.mode === 'tag' ? HOLD : 0; g.phase = 'count'; g.roundId++;
     g.events.push({ k: 'round', round: g.round, chaser: g.chaserTeam });
   }
   function endRound(g, winner, reason) {
-    g.scores[winner]++; g.phase = 'roundEnd'; g.endT = 3; g.lastWin = winner; g.lastReason = reason;
+    if (winner >= 0 && g.mode === 'tag') g.scores[winner]++;
+    g.phase = 'roundEnd'; g.endT = 3; g.lastWin = winner; g.lastReason = reason;
     g.events.push({ k: 'roundEnd', winner, reason });
   }
   function nextRound(g) {
     g.round++;
-    if (g.round >= ROUNDS) { g.phase = 'over'; g.events.push({ k: 'over', scores: g.scores.slice() }); }
+    if (g.round >= (g.rounds || ROUNDS)) { g.phase = 'over'; g.events.push({ k: 'over', scores: g.scores.slice(), winner: g.lastWin, wave: g.wave }); }
     else beginRound(g);
   }
   const isHeld = (c, g) => g.phase !== 'play' || (c.team === g.chaserTeam && g.hold > 0);
-  const skillsOf = (c, g) => (c.team === g.chaserTeam ? SKILLS.chase : SKILLS.run);
+  const skillsOf = (c, g) => g.mode === 'hero' ? [CLASSES[c.cls || 'dps'].skill, { id: 'boost', name: '캣닢 가속', cd: 10 }]
+    : CSKILLS[g.mode] || (c.team === g.chaserTeam ? SKILLS.chase : SKILLS.run);
 
   // 화면에 그릴지: 숨은 상대는 가까이 가야 보인다
   function visibleTo(g, team, c) {
@@ -487,7 +572,7 @@
     if (c.team === team || sniffed(g, team, c)) return true;
     if (!visibleTo(g, team, c)) return false;
     for (const m of g.cats) {
-      if (m.team !== team) continue;
+      if (m.team !== team || m.dead) continue;
       const d = hyp(m.x - c.x, m.y - c.y);
       if (d < SEE || (d < VIEW && sightClear(m.x, m.y, c.x, c.y))) return true;
     }
@@ -509,7 +594,7 @@
   /* 한 마리 이동 — 손님(클라이언트)도 자기 고양이에 같은 함수를 쓴다 */
   function moveCat(c, g, ix, iy, dash, dt) {
     tickTimers(c, dt);
-    if (c.frozen || isHeld(c, g) || c.rootT > 0) { ix = 0; iy = 0; dash = false; }
+    if (c.frozen || c.dead || isHeld(c, g) || c.rootT > 0) { ix = 0; iy = 0; dash = false; }
     const l = hyp(ix, iy); if (l > 1) { ix /= l; iy /= l; }
     if ((ix || iy) && c.pounceT <= 0) { const m = hyp(ix, iy); c.aimX = ix / m; c.aimY = iy / m; }
     if (c.windT > 0) { ix *= 0.25; iy *= 0.25; dash = false; } // 웅크리는 중엔 거의 못 움직인다
@@ -518,10 +603,11 @@
     const isCh = c.team === g.chaserTeam;
     if (dash && c.dashCd <= 0 && (ix || iy) && c.pounceT <= 0) { c.dashT = 0.2; c.dashCd = isCh ? TUNE.dashCdCh : TUNE.dashCdRun; dashed = true; }
     const sp = BASE * (isCh ? TUNE.chSpeed * CH_BONUS : 1) * (c.kind === 'bot' ? (isCh ? TUNE.botCh : TUNE.botRun) : 1)
-      * (c.dashT > 0 ? TUNE.dash : 1) * (c.boostT > 0 ? TUNE.boost : c.scareT > 0 ? TUNE.scareSpd : 1) * (c.pounceT > 0 ? TUNE.pounce : 1) * (c.stun > 0 ? 0.35 : 1);
+      * (c.dashT > 0 ? TUNE.dash : 1) * (c.boostT > 0 ? TUNE.boost : c.scareT > 0 ? TUNE.scareSpd : 1) * (c.pounceT > 0 ? TUNE.pounce : 1) * (c.stun > 0 ? 0.35 : 1)
+      * (g.mode === 'hero' ? CLASSES[c.cls || 'dps'].spd : 1) * (c.shieldT > 0 ? 0.6 : 1) * (g.mode !== 'tag' && c.kind === 'bot' ? 0.95 / (isCh ? TUNE.botCh : TUNE.botRun) : 1);
     const k = 1 - Math.exp(-dt * (c.pounceT > 0 ? 30 : 14));
     c.vx += (ix * sp - c.vx) * k; c.vy += (iy * sp - c.vy) * k;
-    if (c.frozen || c.rootT > 0) { c.vx = 0; c.vy = 0; }
+    if (c.frozen || c.rootT > 0 || c.dead) { c.vx = 0; c.vy = 0; }
     c.x += c.vx * dt; c.y += c.vy * dt; resolve(c, g.blocks);
     c.moving = hyp(c.vx, c.vy) > 30;
     if (Math.abs(c.vx) > 20) c.facing = c.vx > 0 ? 1 : -1;
@@ -532,9 +618,25 @@
   // 스킬 쓰기 — 성공하면 true. 손님도 자기 고양이에 미리 써서 바로 반응하게 한다.
   function skillCd(g, id) { return id === 'sniff' ? TUNE.cd.sniff * clamp(g.ts / 2, 0.55, 1) : TUNE.cd[id]; }
   function useSkill(g, c, k) {
-    if (g.phase !== 'play' || c.frozen || isHeld(c, g) || !(k === 0 || k === 1) || c.sk[k] > 0 || c.windT > 0 || c.pounceT > 0) return false;
+    if (g.phase !== 'play' || c.frozen || c.dead || isHeld(c, g) || !(k === 0 || k === 1) || c.sk[k] > 0 || c.windT > 0 || c.pounceT > 0) return false;
     const s = skillsOf(c, g)[k];
-    c.sk[k] = skillCd(g, s.id);
+    c.sk[k] = s.cd || skillCd(g, s.id);
+    if (s.id === 'nade') {
+      const a = c.gunA ?? Math.atan2(c.aimY, c.aimX), d = 300;
+      let tx = c.x + Math.cos(a) * d, ty = c.y + Math.sin(a) * d;
+      tx = clamp(tx, R, W - R); ty = clamp(ty, R, H - R);
+      g.nades.push({ x: c.x, y: c.y, sx: c.x, sy: c.y, tx, ty, t: 0, T: 0.75, team: c.team, owner: c.id });
+      g.events.push({ k: 'nade', sx: Math.round(c.x), sy: Math.round(c.y), tx: Math.round(tx), ty: Math.round(ty), id: c.id });
+    } else if (s.id === 'wall') {
+      const a = c.gunA ?? Math.atan2(c.aimY, c.aimX), ax = Math.cos(a), ay = Math.sin(a), vert = Math.abs(ax) > Math.abs(ay);
+      const bx = c.x + ax * 70, by = c.y + ay * 70, w = vert ? 34 : 170, h = vert ? 170 : 34;
+      g.blocks.push({ x: clamp(bx - w / 2, 0, W - w), y: clamp(by - h / 2, 0, H - h), w, h, t: 40, k: 'block', team: c.team, hp: 220 });
+      if (g.blocks.length > 14) g.blocks.shift();
+    } else if (s.id === 'shield') c.shieldT = 3.5;
+    else if (s.id === 'camo') c.camoT = 4;
+    else if (s.id === 'healburst') {
+      for (const o of g.cats) if (o.team === c.team && !o.dead && hyp(o.x - c.x, o.y - c.y) < 240) { o.hp = Math.min(o.maxHp, o.hp + 70); }
+    }
     if (s.id === 'trap') {
       const mine = g.traps.filter(t => t.owner === c.id);
       if (mine.length >= 2) g.traps.splice(g.traps.indexOf(mine[0]), 1);
@@ -721,6 +823,286 @@
     b.dx = dir[0]; b.dy = dir[1];
   }
 
+
+  /* ---------------- 전투 모드 (총싸움 · 로봇청소기 습격 · 냥버워치) ---------------- */
+  function initCombat(g, c) {
+    const cls = g.mode === 'hero' ? CLASSES[c.cls || 'dps'] : null;
+    c.maxHp = cls ? cls.hp : g.mode === 'zombie' ? 120 : 100; c.hp = c.maxHp; c.dead = false; c.respawnT = 0; c.revT = 0;
+    c.wpn = cls ? cls.wpn : 'pistol'; c.fireCd = 0; c.kills = c.kills || 0; c.deaths = c.deaths || 0; c.lastHit = -99; c.shieldT = 0; c.fire = false;
+    c.gunA = c.team ? Math.PI : 0;
+  }
+  // 점령 지점: 두 팀 시작 자리 한가운데에서 가장 가까운 걸을 수 있는 곳
+  function cpSpot() {
+    const mx = (SPAWN[0][0] + SPAWN[2][0]) / 2, my = (SPAWN[0][1] + SPAWN[2][1]) / 2;
+    for (let rad = 0; rad < 900; rad += 30) for (let a = 0; a < 6.28; a += 0.5) {
+      const x = mx + Math.cos(a) * rad, y = my + Math.sin(a) * rad;
+      if (!blockedPt(x, y, 70) && hideAt(x, y) < 0) return [x | 0, y | 0];
+    }
+    return [mx | 0, my | 0];
+  }
+  // 같은 시드면 같은 탄도 → 방장은 판정, 손님은 그림만
+  function makeShots(c, x, y, a, wid, seed) {
+    const W0 = WEAPONS[wid] || WEAPONS.pistol, rnd = seeded(seed + 1), out = [];
+    for (let i = 0; i < W0.n; i++) {
+      const aa = a + (rnd() - 0.5) * 2 * W0.spread, sp = W0.spd * (0.92 + rnd() * 0.16);
+      out.push({ x: x + Math.cos(a) * 26, y: y + Math.sin(a) * 26, vx: Math.cos(aa) * sp, vy: Math.sin(aa) * sp, life: W0.life, team: c.team, owner: c.id, dmg: W0.dmg, w: wid });
+    }
+    return out;
+  }
+  const shotBlocked = (x, y) => {
+    if (x < 0 || y < 0 || x > W || y > H) return true;
+    for (const o of SOLIDS) if (o.k !== 'pond' && o.k !== 'stream' && o.k !== 'sea' && x > o.x && x < o.x + o.w && y > o.y && y < o.y + o.h) return true;
+    return false;
+  };
+  function hurt(g, t, dmg, by, sx, sy) {
+    if (t.dead || t.immune > 0 || g.phase !== 'play') return;
+    if (t.shieldT > 0 && sx != null) {
+      const fa = t.gunA ?? 0, da = Math.atan2(sy - t.y, sx - t.x), diff = Math.abs(Math.atan2(Math.sin(da - fa), Math.cos(da - fa)));
+      if (diff < 1.2) dmg *= 0.12; // 방석 방패: 앞에서 오는 건 거의 막는다
+    }
+    t.hp -= dmg; t.lastHit = g.clock;
+    g.events.push({ k: 'hit', id: t.id, by, d: Math.round(dmg) });
+    if (t.hp <= 0) {
+      t.hp = 0; t.dead = true; t.deaths++; t.vx = t.vy = 0; t.shieldT = 0; t.camoT = 0;
+      t.respawnT = g.mode === 'gun' ? 3 : g.mode === 'hero' ? 5 : 0;
+      const k = by >= 0 && g.cats[by] ? g.cats[by] : null;
+      if (k && k.team !== t.team) { k.kills++; if (g.mode === 'gun') g.scores[k.team]++; }
+      g.events.push({ k: 'kill', id: t.id, by, x: Math.round(t.x), y: Math.round(t.y) });
+    }
+  }
+  function boom(g, x, y, team, owner) {
+    g.events.push({ k: 'boom', x: Math.round(x), y: Math.round(y) });
+    for (const c of g.cats) { const d = hyp(c.x - x, c.y - y); if (c.team !== team && d < 130) hurt(g, c, 70 * (1 - d / 160), owner, x, y); }
+    for (const m of g.mobs) { const d = hyp(m.x - x, m.y - y); if (d < 140) hurtMob(g, m, 90 * (1 - d / 180), owner); }
+  }
+  function hurtMob(g, m, dmg, by) {
+    if (m.hp <= 0) return;
+    m.hp -= dmg; m.hitT = 0.15;
+    if (m.hp <= 0) { const k = g.cats[by]; if (k) k.kills++; g.events.push({ k: 'mobdie', u: m.u, x: Math.round(m.x), y: Math.round(m.y), kind: m.kind, by }); }
+  }
+  function fireCat(g, c) {
+    const W0 = WEAPONS[c.wpn] || WEAPONS.pistol;
+    c.fireCd = W0.rate;
+    const seed = (Math.random() * 1e6) | 0;
+    for (const sh of makeShots(c, c.x, c.y, c.gunA, c.wpn, seed)) g.shots.push(sh);
+    g.events.push({ k: 'fire', id: c.id, x: Math.round(c.x), y: Math.round(c.y), a: Math.round(c.gunA * 1000) / 1000, w: c.wpn, s: seed });
+  }
+
+  // 로봇청소기 길찾기: 살아 있는 고양이까지의 거리 지도(BFS)를 깔고 내리막으로 간다
+  let flow = null;
+  function buildFlow(g) {
+    if (!flow || flow.length !== N) flow = new Int32Array(N);
+    flow.fill(1e9);
+    const q = new Int32Array(N); let qh = 0, qt = 0;
+    for (const c of g.cats) {
+      if (c.dead) continue;
+      const i = nearestWalk(c.x, c.y); if (i < 0 || flow[i] === 0) continue;
+      flow[i] = 0; q[qt++] = i;
+    }
+    while (qh < qt) {
+      const cur = q[qh++], cx = cur % GW, cy = (cur / GW) | 0, d = flow[cur] + 1;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= GW || ny >= GH) continue;
+        const ni = ny * GW + nx; if (!walk[ni] || flow[ni] <= d) continue;
+        flow[ni] = d; q[qt++] = ni;
+      }
+    }
+  }
+  const MOBS = { vac: { hp: 60, spd: 150, dmg: 12, r: 26 }, mini: { hp: 25, spd: 230, dmg: 6, r: 16 }, big: { hp: 320, spd: 95, dmg: 28, r: 40 } };
+  function spawnMob(g) {
+    const n = g.wave, roll = Math.random();
+    const kind = n >= 3 && roll < 0.12 + n * 0.01 ? 'big' : roll < 0.45 ? 'mini' : 'vac', M = MOBS[kind];
+    // 고양이들한테서 먼 가장자리에서 나온다
+    let best = null, bd = -1;
+    for (let k = 0; k < 14; k++) {
+      const side = (Math.random() * 4) | 0, t = Math.random();
+      let x = side < 2 ? t * W : side === 2 ? 40 : W - 40, y = side >= 2 ? t * H : side === 0 ? 40 : H - 40;
+      const i = nearestWalk(x, y); if (i < 0) continue;
+      x = (i % GW) * CELL + CELL / 2; y = ((i / GW) | 0) * CELL + CELL / 2;
+      const d = Math.min(...g.cats.filter(c => !c.dead).map(c => hyp(c.x - x, c.y - y)), 1e9);
+      if (d > bd) { bd = d; best = [x, y]; }
+    }
+    if (!best) return;
+    const hpS = 1 + (n - 1) * 0.18, players = g.cats.length;
+    g.mobs.push({ u: ++g.mobSeq, kind, x: best[0], y: best[1], vx: 0, vy: 0, r: M.r, hp: M.hp * hpS * (0.7 + players * 0.06), maxHp: M.hp * hpS * (0.7 + players * 0.06), spd: M.spd * (1 + n * 0.02), dmg: M.dmg, atkCd: 0, hitT: 0, a: 0 });
+  }
+  function stepMobs(g, dt) {
+    g.flowT -= dt; if (g.flowT <= 0) { buildFlow(g); g.flowT = 0.35; }
+    for (const m of g.mobs) {
+      m.hitT = Math.max(0, m.hitT - dt); m.atkCd = Math.max(0, m.atkCd - dt);
+      // 가까우면 바로 고양이로, 아니면 거리 지도 내리막
+      let tx = null, ty = null, best = 1e9;
+      for (const c of g.cats) { if (c.dead) continue; const d = hyp(c.x - m.x, c.y - m.y); if (d < best) { best = d; tx = c.x; ty = c.y; } }
+      if (tx == null) break;
+      let dx = 0, dy = 0;
+      if (best < 220 && lineClear(m.x, m.y, tx, ty, m.r * 0.7)) { dx = tx - m.x; dy = ty - m.y; }
+      else if (flow) {
+        const gx = clamp(Math.floor(m.x / CELL), 0, GW - 1), gy = clamp(Math.floor(m.y / CELL), 0, GH - 1); let bv = flow[gy * GW + gx], bi = -1;
+        for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) { const nx = gx + ox, ny = gy + oy; if (nx < 0 || ny < 0 || nx >= GW || ny >= GH) continue; const v = flow[ny * GW + nx]; if (v < bv) { bv = v; bi = ny * GW + nx; } }
+        if (bi >= 0) { dx = (bi % GW) * CELL + CELL / 2 - m.x; dy = ((bi / GW) | 0) * CELL + CELL / 2 - m.y; } else { dx = tx - m.x; dy = ty - m.y; }
+      }
+      const l = hyp(dx, dy) || 1, k = 1 - Math.exp(-dt * 8);
+      m.vx += (dx / l * m.spd - m.vx) * k; m.vy += (dy / l * m.spd - m.vy) * k;
+      // 서로 밀어내기
+      for (const o of g.mobs) { if (o === m) continue; const ex = m.x - o.x, ey = m.y - o.y, d = hyp(ex, ey); if (d > 0 && d < m.r + o.r) { m.vx += ex / d * 60; m.vy += ey / d * 60; } }
+      const px = m.x, py = m.y;
+      m.x += m.vx * dt; m.y += m.vy * dt; resolve(m, g.blocks);
+      m.a = Math.atan2(m.vy, m.vx);
+      // 바리케이드에 막히면 부순다
+      if (hyp(m.x - px, m.y - py) < m.spd * dt * 0.3) for (const b of g.blocks) {
+        if (b.hp != null && circleHitsRect(m.x, m.y, m.r + 6, b) && m.atkCd <= 0) { b.hp -= m.dmg; m.atkCd = 0.7; if (b.hp <= 0) { b.t = 0; g.events.push({ k: 'wallbreak', x: Math.round(b.x + b.w / 2), y: Math.round(b.y + b.h / 2) }); } }
+      }
+      for (const c of g.cats) if (!c.dead && m.atkCd <= 0 && hyp(c.x - m.x, c.y - m.y) < c.r + m.r + 4) { hurt(g, c, m.dmg, -1); m.atkCd = 0.8; }
+    }
+    g.mobs = g.mobs.filter(m => m.hp > 0);
+  }
+
+  // 전투 봇: 보이는 적을 겨누고, 무기에 맞는 거리를 유지하며 옆으로 움직인다
+  function botCombat(c, g) {
+    const b = c.bot; b.dash = false; c.fire = false;
+    if (c.dead) { b.dx = b.dy = 0; return; }
+    if (hyp(c.x - b.lx, c.y - b.ly) < 4 && (b.dx || b.dy)) b.stuckT += 0.15; else b.stuckT = 0;
+    b.lx = c.x; b.ly = c.y;
+    if (b.stuckT > 0.6) { const a = Math.random() * 6.28; b.dx = Math.cos(a); b.dy = Math.sin(a); b.path = null; b.stuckT = 0; b.wig = g.clock + 0.35; return; }
+    if (g.clock < b.wig) return;
+    const W0 = WEAPONS[c.wpn] || WEAPONS.pistol, range = W0.spd * W0.life * 0.85;
+    const pref = c.wpn === 'sniper' ? 520 : c.wpn === 'shotgun' ? 130 : 280;
+    let tgt = null, td = 1e9;
+    if (g.mode === 'zombie') { for (const m of g.mobs) { const d = hyp(m.x - c.x, m.y - c.y); if (d < td && d < 700 && sightClear(c.x, c.y, m.x, m.y)) { td = d; tgt = m; } } }
+    else for (const o of g.cats) { if (o.team === c.team || o.dead) continue; const d = hyp(o.x - c.x, o.y - c.y); if (d < td && teamSees(g, c.team, o)) { td = d; tgt = o; } }
+    // 힐러: 다친 아군 옆으로
+    let healT = null;
+    if (c.wpn === 'churu') for (const o of g.cats) if (o !== c && o.team === c.team && !o.dead && o.hp < o.maxHp * 0.7 && hyp(o.x - c.x, o.y - c.y) < 500) { healT = o; break; }
+    let dir = [0, 0];
+    if (tgt) {
+      const lead = td / W0.spd, ax = tgt.x + (tgt.vx || 0) * lead, ay = tgt.y + (tgt.vy || 0) * lead;
+      c.gunA = Math.atan2(ay - c.y, ax - c.x) + (Math.random() - 0.5) * 0.12;
+      c.fire = td < range && lineClear(c.x, c.y, tgt.x, tgt.y, 4);
+      const side = Math.sin(g.clock * 1.3 + c.id) > 0 ? 1 : -1, ux = (tgt.x - c.x) / td, uy = (tgt.y - c.y) / td;
+      if (c.hp < c.maxHp * 0.3 && g.mode !== 'zombie') { dir = [-ux, -uy]; b.dash = true; }
+      else if (td > pref + 80) dir = goTo(c, tgt.x, tgt.y, g);
+      else if (td < pref - 80) dir = [-ux + -uy * side * 0.6, -uy + ux * side * 0.6];
+      else dir = [-uy * side, ux * side];
+      // 스킬
+      if (c.sk[0] <= 0) {
+        const s0 = skillsOf(c, g)[0].id;
+        if (s0 === 'nade' && td > 140 && td < 380 && Math.random() < 0.3) useSkill(g, c, 0);
+        else if (s0 === 'shield' && c.hp < c.maxHp * 0.8 && g.clock - c.lastHit < 1) useSkill(g, c, 0);
+        else if (s0 === 'camo' && c.hp < c.maxHp * 0.5) useSkill(g, c, 0);
+        else if (s0 === 'wall' && td < 260 && Math.random() < 0.25) useSkill(g, c, 0);
+      }
+    } else {
+      c.gunA = Math.atan2(b.dy || 0.01, b.dx || 0.01);
+      let goal = null;
+      if (healT) goal = [healT.x, healT.y];
+      else if (g.mode === 'hero' && g.cp) goal = [g.cp.x + Math.cos(c.id * 2.1) * 90, g.cp.y + Math.sin(c.id * 2.1) * 90];
+      else if (g.mode === 'zombie') { const al = g.cats.filter(o => !o.dead); goal = [al.reduce((a, o) => a + o.x, 0) / al.length, al.reduce((a, o) => a + o.y, 0) / al.length]; }
+      else {
+        if (!b.goal || hyp(b.goal.x - c.x, b.goal.y - c.y) < 60) { const bx = g.boxes.filter(x => x.t <= 0); const pick = bx.length && Math.random() < 0.5 ? bx[(Math.random() * bx.length) | 0] : null; b.goal = pick ? { x: pick.x, y: pick.y } : { x: R + Math.random() * (W - 2 * R), y: R + Math.random() * (H - 2 * R) }; if (blockedPt(b.goal.x, b.goal.y, R)) b.goal = null; }
+        if (b.goal) goal = [b.goal.x, b.goal.y];
+      }
+      if (goal && hyp(goal[0] - c.x, goal[1] - c.y) > 50) dir = goTo(c, goal[0], goal[1], g);
+    }
+    if (healT && !tgt) { c.gunA = Math.atan2(healT.y - c.y, healT.x - c.x); c.fire = hyp(healT.x - c.x, healT.y - c.y) < 400; }
+    if (c.items[0] === 'fish' || (c.items[0] && tgt)) useItem(g, c);
+    b.dx = dir[0]; b.dy = dir[1];
+  }
+
+  function stepCombat(g, dt) {
+    g.timeLeft -= dt;
+    // 고양이
+    for (const c of g.cats) {
+      c.fireCd = Math.max(0, c.fireCd - dt); c.shieldT = Math.max(0, (c.shieldT || 0) - dt);
+      if (c.dead) {
+        if (c.respawnT > 0) {
+          c.respawnT -= dt;
+          if (c.respawnT <= 0) { const [sx, sy] = spawnPos(c.team, c.id - c.team * g.ts); c.x = sx; c.y = sy; c.dead = false; c.hp = c.maxHp; c.immune = 1.5; g.events.push({ k: 'respawn', id: c.id }); }
+        } else if (g.mode === 'zombie') {
+          // 동료가 옆에 2초 있으면 부활
+          const helper = g.cats.find(o => !o.dead && hyp(o.x - c.x, o.y - c.y) < 70);
+          c.revT = helper ? (c.revT || 0) + dt : 0;
+          if (c.revT > 2) { c.dead = false; c.hp = c.maxHp * 0.4; c.immune = 1.5; c.revT = 0; g.events.push({ k: 'revive', id: c.id, by: helper.id }); }
+        }
+      } else if (g.clock - c.lastHit > 4) c.hp = Math.min(c.maxHp, c.hp + 8 * dt); // 안 맞으면 천천히 회복
+      // 힐러 주변 회복
+      if (!c.dead && c.wpn === 'churu') for (const o of g.cats) if (o !== c && o.team === c.team && !o.dead && hyp(o.x - c.x, o.y - c.y) < 170) o.hp = Math.min(o.maxHp, o.hp + 7 * dt);
+      if (c.kind === 'remote') { tickTimers(c, dt); c.hideIdx = hideAt(c.x, c.y); c.hidden = c.hideIdx >= 0 || c.camoT > 0; }
+      else {
+        let ix = 0, iy = 0, dash = false;
+        if (c.kind === 'bot') { c.bot.cd -= dt; if (c.bot.cd <= 0) { botCombat(c, g); c.bot.cd = 0.1 + Math.random() * 0.06; } ix = c.bot.dx; iy = c.bot.dy; dash = c.bot.dash; }
+        else { const inp = g.localInput[c.id] || {}; ix = inp.x || 0; iy = inp.y || 0; dash = !!inp.dash; if (typeof inp.ga === 'number') c.gunA = inp.ga; c.fire = !!inp.fire; }
+        if (moveCat(c, g, ix, iy, dash, dt)) g.events.push({ k: 'dash', id: c.id });
+      }
+      if (c.fire && !c.dead && c.fireCd <= 0) { fireCat(g, c); if (c.camoT > 0) c.camoT = 0; }
+    }
+    // 총알
+    for (const sh of g.shots) {
+      const steps = 2;
+      for (let k = 0; k < steps && sh.life > 0; k++) {
+        sh.x += sh.vx * dt / steps; sh.y += sh.vy * dt / steps;
+        if (shotBlocked(sh.x, sh.y)) { sh.life = 0; break; }
+        let hitBlock = false;
+        for (const b of g.blocks) if (sh.x > b.x && sh.x < b.x + b.w && sh.y > b.y && sh.y < b.y + b.h) { if (b.team !== sh.team) { hitBlock = true; if (b.hp != null) b.hp -= sh.dmg * 0.5; } }
+        if (hitBlock) { sh.life = 0; break; }
+        for (const c of g.cats) {
+          if (c.dead || c.id === sh.owner || hyp(c.x - sh.x, c.y - sh.y) > c.r + 6) continue;
+          if (c.team === sh.team) { if (sh.w === 'churu') { c.hp = Math.min(c.maxHp, c.hp + sh.dmg); sh.life = 0; g.events.push({ k: 'heal', id: c.id }); } continue; }
+          hurt(g, c, sh.dmg, sh.owner, sh.x - sh.vx * 0.05, sh.y - sh.vy * 0.05); sh.life = 0; break;
+        }
+        if (sh.life > 0) for (const m of g.mobs) if (m.hp > 0 && hyp(m.x - sh.x, m.y - sh.y) < m.r + 6) { hurtMob(g, m, sh.dmg, sh.owner); sh.life = 0; break; }
+      }
+      sh.life -= dt;
+    }
+    g.shots = g.shots.filter(s => s.life > 0);
+    // 털뭉치 폭탄
+    for (const n of g.nades) { n.t += dt; const k = Math.min(1, n.t / n.T); n.x = n.sx + (n.tx - n.sx) * k; n.y = n.sy + (n.ty - n.sy) * k; if (n.t >= n.T) { n.done = true; boom(g, n.tx, n.ty, n.team, n.owner); } }
+    g.nades = g.nades.filter(n => !n.done);
+    for (const b of g.blocks) b.t -= dt;
+    g.blocks = g.blocks.filter(b => b.t > 0 && (b.hp == null || b.hp > 0));
+    // 아이템 상자: 총싸움은 무기·회복, 나머지는 기존 아이템
+    for (const bx of g.boxes) {
+      if (bx.t > 0) { bx.t -= dt; continue; }
+      for (const c of g.cats) {
+        if (c.dead || hyp(c.x - bx.x, c.y - bx.y) > c.r + 22) continue;
+        if (g.mode === 'hero') { c.hp = Math.min(c.maxHp, c.hp + 60); bx.t = 10; g.events.push({ k: 'pick', id: c.id, s: 'heal', x: bx.x, y: bx.y }); break; }
+        const roll = Math.random();
+        if (roll < 0.55) { const w = ['shotgun', 'rapid', 'sniper'][(Math.random() * 3) | 0]; c.wpn = w; g.events.push({ k: 'pick', id: c.id, s: 'w:' + w, x: bx.x, y: bx.y }); }
+        else if (roll < 0.85 || c.items.length >= TUNE.itemMax) { c.hp = Math.min(c.maxHp, c.hp + 50); g.events.push({ k: 'pick', id: c.id, s: 'heal', x: bx.x, y: bx.y }); }
+        else { const it = ITEMS[(Math.random() * ITEMS.length) | 0].id; c.items.push(it); g.events.push({ k: 'pick', id: c.id, s: it, x: bx.x, y: bx.y }); }
+        bx.t = TUNE.boxRespawn + 3; break;
+      }
+    }
+    // 모드별 승패
+    if (g.mode === 'gun') {
+      for (const t of [0, 1]) if (g.scores[t] >= g.killGoal) { endRound(g, t, 'kills'); return; }
+      if (g.timeLeft <= 0) { g.timeLeft = 0; endRound(g, g.scores[0] === g.scores[1] ? -1 : g.scores[0] > g.scores[1] ? 0 : 1, 'time'); }
+    } else if (g.mode === 'hero') {
+      const cp = g.cp, inside = [0, 0];
+      for (const c of g.cats) if (!c.dead && hyp(c.x - cp.x, c.y - cp.y) < cp.r) inside[c.team]++;
+      const own = inside[0] && !inside[1] ? 0 : inside[1] && !inside[0] ? 1 : -1;
+      cp.contested = inside[0] > 0 && inside[1] > 0;
+      if (own >= 0) { cp.prog[own] = Math.min(100, cp.prog[own] + dt * (1.6 + Math.min(inside[own], 3) * 0.5)); if (cp.owner !== own) { cp.owner = own; g.events.push({ k: 'cap', team: own }); } }
+      g.scores = [Math.floor(cp.prog[0]), Math.floor(cp.prog[1])];
+      for (const t of [0, 1]) if (cp.prog[t] >= 100) { endRound(g, t, 'cap'); return; }
+      if (g.timeLeft <= 0) { g.timeLeft = 0; endRound(g, cp.prog[0] === cp.prog[1] ? -1 : cp.prog[0] > cp.prog[1] ? 0 : 1, 'time'); }
+    } else if (g.mode === 'zombie') {
+      g.timeLeft = 999;
+      if (g.waveLeft <= 0 && !g.mobs.length) {
+        if (g.breakT > 0) {
+          g.breakT -= dt;
+          if (g.breakT <= 0) {
+            g.wave++; g.waveLeft = Math.round((5 + g.wave * 4) * (0.6 + g.cats.length * 0.12)); g.spawnT = 0;
+            for (const c of g.cats) if (c.dead) { c.dead = false; c.hp = c.maxHp * 0.6; c.immune = 2; }
+            g.events.push({ k: 'wave', n: g.wave });
+          }
+        } else { g.breakT = 6; g.scores = [g.wave, 0]; if (g.wave > 0) g.events.push({ k: 'waveclear', n: g.wave }); }
+      }
+      if (g.waveLeft > 0) { g.spawnT -= dt; if (g.spawnT <= 0) { spawnMob(g); g.waveLeft--; g.spawnT = Math.max(0.25, 1.3 - g.wave * 0.08); } }
+      stepMobs(g, dt);
+      if (g.cats.every(c => c.dead)) { g.scores = [g.wave, 0]; endRound(g, 1, 'wipe'); }
+    }
+  }
+
   /* ---------------- 한 틱 ---------------- */
   function stepGame(g, dt) {
     g.clock += dt;
@@ -736,6 +1118,7 @@
       return;
     }
     // play
+    if (g.mode && g.mode !== 'tag') { stepCombat(g, dt); return; }
     const tBefore = Math.ceil(g.timeLeft);
     g.timeLeft -= dt;
     if (tBefore <= 10 && Math.ceil(g.timeLeft) < tBefore && g.timeLeft > 0) g.events.push({ k: 'sec', n: Math.ceil(g.timeLeft) });
@@ -832,9 +1215,9 @@
   }
 
   const api = {
-    R, BASE, ROUNDS, SEE, VIEW, TEAM_NAME, skillCd, CELL, SKILLS, ITEMS, TUNE, spawnPos, MAPS, MAP_IDS: Object.keys(MAPS),
+    R, BASE, ROUNDS, SEE, TEAM_NAME, skillCd, CELL, SKILLS, ITEMS, TUNE, spawnPos, MAPS, MAP_IDS: Object.keys(MAPS),
     setMap, blockedPt, hideAt, resolve, lineClear, sightClear, astar, createGame, startMatch, beginRound, placeCats, stepGame,
-    moveCat, useSkill, useItem, say, skillsOf, visibleTo, teamSees, sniffed, isHeld, tickTimers,
+    moveCat, useSkill, useItem, say, skillsOf, makeShots, shotBlocked, MODES, WEAPONS, WEAPON_IDS, CLASSES, CLASS_IDS, MOBS, visibleTo, teamSees, sniffed, isHeld, tickTimers,
   };
   setMap('house');
   root.Core = api;
