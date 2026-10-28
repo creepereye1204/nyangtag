@@ -12,7 +12,7 @@
   const TEAM_NAME = C.TEAM_NAME;
   const PREFIX = 'nyangtag-v1-';
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const VERSION = 'v3.0.0';
+  const VERSION = 'v3.1.0';
   const MAXP = 16; // 최대 8:8
   const MAP_ICON = { house: '🏠', hanok: '🏮', cafe: '☕', snow: '❄️', beach: '🏖️', town: '🏘️' };
   const SK_ICON = { trap: '🧶', boost: '🌿', sniff: '👃', pounce: '🐾', nade: '💣', wall: '🧱', shield: '🛡️', camo: '🦎', healburst: '💗' };
@@ -1247,18 +1247,47 @@
   $('sayBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (app.mode === 'practice' && !touchUI) sayQ = true; else chatOpen(); });
   const mouse = { x: 0, y: 0, down: false, on: false };
   addEventListener('pointermove', e => { if (e.pointerType === 'mouse') { mouse.x = e.clientX; mouse.y = e.clientY; mouse.on = true; } });
-  $('app').addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button === 0 && app.inGame && e.target.closest('#world,#fx,#sprites,#hud') && !e.target.closest('button')) mouse.down = true; });
-  addEventListener('pointerup', e => { if (e.pointerType === 'mouse') mouse.down = false; });
+  const uiHit = t => t.closest('button,input,form,.screen,#chatBox,#skills');
+  $('app').addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'mouse' || !app.inGame || uiHit(e.target)) return;
+    if (e.button === 0) mouse.down = true;
+    else if (e.button === 2 && isCombat(app.g)) skillQ[0] = true;
+  });
+  addEventListener('pointerup', e => { if (e.pointerType === 'mouse' && e.button === 0) mouse.down = false; });
+  addEventListener('blur', () => { mouse.down = false; });
+  $('app').addEventListener('contextmenu', e => { if (app.inGame) e.preventDefault(); });
   let fireTouch = false;
-  const fireBtn = $('fireBtn');
-  fireBtn.addEventListener('pointerdown', e => { e.preventDefault(); fireTouch = true; try { fireBtn.setPointerCapture(e.pointerId); } catch (er) { } });
-  fireBtn.addEventListener('pointerup', () => { fireTouch = false; }); fireBtn.addEventListener('pointercancel', () => { fireTouch = false; });
+  const fireBtn = $('fireBtn'), aimStick = { id: null, ox: 0, oy: 0, a: null };
+  // 누르면 발사, 누른 채 드래그하면 그 방향으로 조준 (안 끌면 자동 조준)
+  fireBtn.addEventListener('pointerdown', e => {
+    e.preventDefault(); fireTouch = true; aimStick.id = e.pointerId; aimStick.ox = e.clientX; aimStick.oy = e.clientY; aimStick.a = null;
+    try { fireBtn.setPointerCapture(e.pointerId); } catch (er) { }
+  });
+  fireBtn.addEventListener('pointermove', e => {
+    if (e.pointerId !== aimStick.id) return;
+    const dx = e.clientX - aimStick.ox, dy = e.clientY - aimStick.oy, d = hyp(dx, dy);
+    if (d > 14) aimStick.a = Math.atan2(dy, dx);
+    fireBtn.style.setProperty('--ax', clamp(dx, -30, 30) + 'px'); fireBtn.style.setProperty('--ay', clamp(dy, -30, 30) + 'px');
+  });
+  const endAim = () => { fireTouch = false; aimStick.id = null; aimStick.a = null; fireBtn.style.setProperty('--ax', '0px'); fireBtn.style.setProperty('--ay', '0px'); };
+  fireBtn.addEventListener('pointerup', endAim); fireBtn.addEventListener('pointercancel', endAim);
   // 조준: PC는 마우스, 폰은 가장 가까운 보이는 적을 자동 조준 (없으면 가는 방향)
   function aimFor(me, g, mx, my) {
-    if (!touchUI && mouse.on) { const [px, py] = toScreen(me.x, me.y); return Math.atan2(mouse.y - py, mouse.x - px); }
-    let best = null, bd = 1e9;
     const W0 = C.WEAPONS[me.wpn] || C.WEAPONS.pistol, range = W0.spd * W0.life;
     const cand = g.mode === 'zombie' ? g.mobs : g.cats.filter(c => c.team !== me.team && !c.dead && C.visibleTo(g, me.team, c));
+    if (aimStick.a != null) return aimStick.a;
+    if (!touchUI && mouse.on) {
+      const [px, py] = toScreen(me.x, me.y), a = Math.atan2(mouse.y - py, mouse.x - px);
+      // 조준 보정: 커서 방향 10° 안의 적에게 살짝 붙는다
+      let best = null, bs = 0.18;
+      for (const t of cand) {
+        const d = hyp(t.x - me.x, t.y - me.y); if (d > range * 1.05) continue;
+        const ta = Math.atan2(t.y - me.y, t.x - me.x), diff = Math.abs(Math.atan2(Math.sin(ta - a), Math.cos(ta - a)));
+        if (diff < bs) { bs = diff; best = ta; }
+      }
+      return best == null ? a : a + Math.atan2(Math.sin(best - a), Math.cos(best - a)) * 0.6;
+    }
+    let best = null, bd = 1e9;
     for (const t of cand) { const d = hyp(t.x - me.x, t.y - me.y); if (d < bd && d < range * 1.1) { bd = d; best = t; } }
     if (best) return Math.atan2(best.y - me.y, best.x - me.x);
     if (mx || my) return Math.atan2(my, mx);
@@ -1706,7 +1735,12 @@
       if (app.mode === 'client' && e.id === app.mySlot && !e.local) return;
       if (app.mode === 'client' && cat) for (const sh of C.makeShots(cat, e.x, e.y, e.a, e.w, e.s)) g.shots.push(sh);
       if (cat && (canSee(cat) || e.id === app.mySlot)) burst(e.x + Math.cos(e.a) * 30, e.y + Math.sin(e.a) * 30, 3, { col: [WPN_COL[e.w] || '#fff', '#fff'], sp: 140, a0: e.a - .4, spread: .8, life: .18, size: 6 });
-      if (e.id === app.mySlot) { SFX.pew(e.w); if (e.w === 'sniper' || e.w === 'shotgun') shake(3); }
+      if (e.id === app.mySlot) {
+        SFX.pew(e.w); shake(e.w === 'sniper' ? 6 : e.w === 'shotgun' ? 5 : 1.2);
+        // 반동: 화면이 쏜 반대쪽으로 살짝 밀린다
+        app.cam.x -= Math.cos(e.a) * (e.w === 'sniper' ? 14 : e.w === 'shotgun' ? 10 : 3); app.cam.y -= Math.sin(e.a) * (e.w === 'sniper' ? 14 : e.w === 'shotgun' ? 10 : 3);
+        if (e.w === 'sniper' || e.w === 'shotgun') vib(15); else if (Math.random() < .3) vib(6);
+      }
       else if (cat && near(e.x, e.y)) SFX.pew(e.w, .35);
     } else if (e.k === 'nade') {
       if (app.mode === 'client') g.nades.push({ sx: e.sx, sy: e.sy, tx: e.tx, ty: e.ty, t: 0, T: .75 });
@@ -2221,7 +2255,10 @@
   /* ---------------- 그리기 ---------------- */
   function camFollow(dt) {
     let tx, ty;
-    if (app.inGame && app.g && app.g.cats[app.mySlot]) { const m = app.g.cats[app.mySlot]; tx = m.x + m.vx * .18; ty = m.y + m.vy * .18; }
+    if (app.inGame && app.g && app.g.cats[app.mySlot]) {
+      const m = app.g.cats[app.mySlot]; tx = m.x + m.vx * .18; ty = m.y + m.vy * .18;
+      if (isCombat(app.g) && !m.dead) { const look = touchUI ? 70 : 140; tx += Math.cos(m.gunA || 0) * look; ty += Math.sin(m.gunA || 0) * look; }
+    }
     else {
       const d = app.demoCam; d.t -= dt;
       if (d.t <= 0 || !d.follow || !app.demo.cats.includes(d.follow)) { d.follow = app.demo.cats[Math.floor(Math.random() * app.demo.cats.length)]; d.t = 7; }

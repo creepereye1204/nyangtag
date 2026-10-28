@@ -605,7 +605,7 @@
     const sp = BASE * (isCh ? TUNE.chSpeed * CH_BONUS : 1) * (c.kind === 'bot' ? (isCh ? TUNE.botCh : TUNE.botRun) : 1)
       * (c.dashT > 0 ? TUNE.dash : 1) * (c.boostT > 0 ? TUNE.boost : c.scareT > 0 ? TUNE.scareSpd : 1) * (c.pounceT > 0 ? TUNE.pounce : 1) * (c.stun > 0 ? 0.35 : 1)
       * (g.mode === 'hero' ? CLASSES[c.cls || 'dps'].spd : 1) * (c.shieldT > 0 ? 0.6 : 1) * (g.mode !== 'tag' && c.kind === 'bot' ? 0.95 / (isCh ? TUNE.botCh : TUNE.botRun) : 1);
-    const k = 1 - Math.exp(-dt * (c.pounceT > 0 ? 30 : 14));
+    const k = 1 - Math.exp(-dt * (c.pounceT > 0 ? 30 : c.kind === 'bot' ? 14 : 20)); // 사람은 덜 미끄럽게
     c.vx += (ix * sp - c.vx) * k; c.vy += (iy * sp - c.vy) * k;
     if (c.frozen || c.rootT > 0 || c.dead) { c.vx = 0; c.vy = 0; }
     c.x += c.vx * dt; c.y += c.vy * dt; resolve(c, g.blocks);

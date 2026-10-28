@@ -275,3 +275,8 @@ body.touchui #chatBox{bottom:auto;top:calc(140px + var(--sat));width:min(300px,5
   body.touchui.combat .skb.dash{width:52px;height:52px}
   body.touchui #chatBox{top:calc(150px + var(--sat))}
 }
+
+/* 발사 버튼 = 조준 스틱 */
+.skb.fire{--ax:0px;--ay:0px}
+.skb.fire .ic,.skb.fire .nm{transform:translate(var(--ax),var(--ay));transition:transform .05s}
+.skb.fire::before{content:"";position:absolute;inset:8px;border-radius:50%;border:2px dashed rgba(255,255,255,.45);pointer-events:none}
