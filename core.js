@@ -26,7 +26,7 @@
   const MODES = {
     tag: { name: '얼음땡', icon: '🧊', desc: '술래잡기 + 숨바꼭질', rounds: 4 },
     gun: { name: '냥냥 총싸움', icon: '🔫', desc: '물총 팀 데스매치 · 먼저 목표 킬', rounds: 1, time: 150 },
-    zombie: { name: '로봇청소기 습격', icon: '🤖', desc: '다 같이 웨이브 버티기 (협동)', rounds: 1, time: 999 },
+    zombie: { name: '로봇청소기 습격', icon: '🤖', desc: '박스헤드식 웨이브 생존 · 콤보·무기 해금 (협동)', rounds: 1, time: 999 },
     hero: { name: '냥버워치', icon: '🦸', desc: '클래스 골라 점령전', rounds: 1, time: 180 },
   };
   // 물총 종류: 연사 간격, 피해, 탄속, 퍼짐, 발 수, 사거리(초)
@@ -36,6 +36,7 @@
     rapid: { name: '기관 물총', rate: 0.09, dmg: 7, spd: 950, spread: 0.12, n: 1, life: 0.55 },
     sniper: { name: '저격 물총', rate: 1.1, dmg: 58, spd: 1800, spread: 0, n: 1, life: 0.8 },
     churu: { name: '츄르 총', rate: 0.22, dmg: 9, spd: 850, spread: 0.06, n: 1, life: 0.55 },
+    rocket: { name: '냥 바주카', rate: 0.85, dmg: 30, spd: 720, spread: 0.02, n: 1, life: 0.9, boom: true },
   };
   const WEAPON_IDS = Object.keys(WEAPONS);
   // 냥버워치 클래스 (전부 고양이 오리지널)
@@ -135,9 +136,11 @@
   }
   function procMap(def) {
     return Object.assign(def, {
-      build() { const L = genLayout(def.spec); def.boxes = L.boxes; return L; },
+      build() { const L = genLayout(def.spec); def.boxes = L.boxes; L.lights = def.lights; return L; },
     });
   }
+  const HW_LIGHTS = [[620, 260, 230], [1300, 620, 230], [2300, 620, 230], [1800, 560, 260], [300, 1300, 230], [1000, 1350, 230], [1700, 1100, 230], [2900, 1000, 230], [3400, 620, 230],
+        [650, 1980, 240], [1500, 2000, 230], [2200, 1800, 230], [2600, 2400, 230], [3300, 1500, 230], [1800, 2450, 230], [3050, 250, 230]];
   const MAPS = {
     house: {
       name: '우리 집', desc: '아담한 집 한 채 · 50초', w: 2400, h: 1600, time: 50, hold: 7,
@@ -341,8 +344,149 @@
         };
       },
     },
+    school: {
+      name: '냥냥 초등학교', desc: '교실·음악실·운동장·체육관 · 58초', w: 4000, h: 2800, time: 58, hold: 6, sniff: 1350, chBonus: 1.05,
+      spawn: [[200, 1250], [300, 1300], [3800, 2620], [3700, 2560]],
+      boxes: [[850, 180], [500, 950], [1450, 980], [2450, 900], [3490, 960], [3460, 200], [1200, 1250], [2900, 1250], [420, 1750], [1300, 1950], [2050, 2620], [900, 2550], [3300, 1700], [3500, 2400], [2400, 1800]],
+      build() {
+        const B = (x, y, w, h, k, label = '') => ({ x, y, w, h, k, label });
+        const desks = [];
+        for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) desks.push(B(130 + i * 200, 330 + j * 190, 100, 64, 'sdesk'));
+        return {
+          rooms: [
+            { x: 0, y: 0, w: 1000, h: 1100, k: 'wood', label: '1학년 1반' },
+            { x: 1000, y: 0, w: 1000, h: 1100, k: 'carpet', label: '음악실' },
+            { x: 2000, y: 0, w: 1000, h: 1100, k: 'tile', label: '과학실' },
+            { x: 3000, y: 0, w: 1000, h: 1100, k: 'tile', label: '급식실' },
+            { x: 0, y: 1100, w: 4000, h: 300, k: 'hall', label: '' },
+            { x: 0, y: 1400, w: 2800, h: 1400, k: 'track', label: '' },
+            { x: 2800, y: 1400, w: 1200, h: 1400, k: 'court', label: '' },
+          ],
+          solids: [
+            ...[1000, 2000, 3000].flatMap(x => wallsV(x, [[0, 480], [680, 1100]])),
+            ...wallsH(1100, [[0, 380], [620, 1380], [1620, 2380], [2620, 3380], [3620, 4000]]),
+            ...wallsH(1400, [[0, 600], [900, 2000], [2300, 3550], [3800, 4000]]),
+            ...wallsV(2800, [[1400, 1800], [2000, 2400], [2580, 2800]]),
+            // 1학년 1반
+            B(250, 6, 500, 44, 'board', '칠판'), ...desks,
+            // 음악실
+            B(1120, 120, 280, 130, 'piano', '피아노'), B(1600, 140, 90, 90, 'drum'), B(1730, 220, 80, 80, 'drum'), B(1030, 820, 60, 220, 'shelf'),
+            // 과학실
+            B(2150, 300, 240, 90, 'lab', '실험대'), B(2550, 300, 240, 90, 'lab', '실험대'), B(2150, 620, 240, 90, 'lab', '실험대'), B(2550, 620, 240, 90, 'lab', '실험대'), B(2700, 30, 260, 60, 'shelf'),
+            // 급식실
+            B(3150, 20, 560, 80, 'counter', '급식대'), B(3880, 140, 100, 150, 'fridge', '냉장고'),
+            B(3100, 300, 320, 90, 'table'), B(3560, 300, 320, 90, 'table'), B(3100, 620, 320, 90, 'table'), B(3560, 620, 320, 90, 'table'),
+            // 운동장
+            B(60, 1980, 70, 240, 'goal'), B(2560, 1980, 70, 240, 'goal'),
+            ...[[380, 1450], [1700, 1450], [60, 2650], [1300, 2700], [2650, 2680]].map(([x, y]) => B(x, y, 90, 90, 'tree')),
+            B(1000, 2720, 160, 50, 'bench', '벤치'), B(1800, 2720, 160, 50, 'bench', '벤치'),
+            B(300, 2350, 220, 220, 'gym', '정글짐'), B(2200, 1600, 120, 260, 'slide', '미끄럼틀'),
+            // 체육관
+            B(3360, 1416, 80, 44, 'hoop'), B(3360, 2740, 80, 44, 'hoop'), B(3000, 1800, 160, 90, 'vault', '뜀틀'), B(3700, 2000, 160, 90, 'vault', '뜀틀'),
+          ],
+          hides: [
+            B(420, 110, 170, 110, 'tablecloth', '교탁 밑'), B(60, 900, 130, 110, 'box', '상자'), B(0, 420, 64, 300, 'curtain', '커튼'),
+            B(1924, 700, 64, 320, 'curtain', '무대 커튼'), B(1150, 600, 150, 120, 'blanket', '방석'), B(1500, 780, 150, 120, 'blanket', '방석'),
+            B(2820, 860, 150, 110, 'laundry', '실험복 더미'), B(2060, 900, 130, 110, 'box', '상자'),
+            B(3100, 860, 240, 150, 'tablecloth', '식탁 밑'), B(3640, 860, 240, 150, 'tablecloth', '식탁 밑'),
+            B(700, 1112, 220, 72, 'locker', '사물함'), B(1700, 1112, 220, 72, 'locker', '사물함'), B(2700, 1112, 220, 72, 'locker', '사물함'), B(3700, 1112, 220, 72, 'locker', '사물함'),
+            B(1000, 1316, 240, 72, 'locker', '사물함'), B(2500, 1316, 240, 72, 'locker', '사물함'), B(3200, 1316, 240, 72, 'locker', '사물함'),
+            B(700, 1500, 230, 170, 'bush', '풀숲'), B(1500, 2400, 240, 180, 'bush', '풀숲'), B(2300, 2350, 220, 180, 'bush', '풀숲'), B(40, 1500, 200, 160, 'bush', '풀숲'),
+            B(900, 2150, 260, 110, 'tube', '터널'), B(1900, 1550, 140, 120, 'box', '공 바구니'),
+            B(2840, 2500, 240, 150, 'mat', '매트 더미'), B(3750, 1500, 220, 150, 'mat', '매트 더미'), B(3100, 2200, 130, 110, 'box', '공 상자'), B(3936, 1900, 64, 320, 'curtain', '무대 커튼'),
+          ],
+        };
+      },
+    },
+    halloween: procMap({
+      name: '할로윈 호박밭', desc: '유령 저택 · 묘지 · 옥수수밭 (밤) · 58초', w: 3600, h: 2600, time: 58, hold: 6, sniff: 1350, chBonus: 1.05, view: 500, night: true, lamp: 'pumpkin',
+      spawn: [[250, 300], [340, 380], [3350, 2300], [3260, 2220]], boxes: [],
+      lights: HW_LIGHTS,
+      spec: {
+        w: 3600, h: 2600, seed: 1031, boxes: 12, spawn: [[290, 340], [3310, 2260]],
+        rooms: [
+          { x: 0, y: 0, w: 3600, h: 2600, k: 'dgrass', label: '' },
+          { x: 1250, y: 0, w: 1100, h: 760, k: 'dirt', label: '' },
+        ],
+        fixed: {
+          solids: [
+            { x: 1400, y: 60, w: 800, h: 400, k: 'mansion', label: '유령 저택' },
+            ...wallsH(1500, [[150, 450], [650, 1150]], 'ifence'), ...wallsH(2450, [[150, 700], [900, 1150]], 'ifence'),
+            ...wallsV(150, [[1500, 1800], [2050, 2450]], 'ifence'), ...wallsV(1150, [[1500, 1900], [2100, 2450]], 'ifence'),
+            { x: 2500, y: 1250, w: 150, h: 120, k: 'cauldron', label: '마녀 솥' },
+            ...HW_LIGHTS.map(([x, y]) => ({ x: x - 30, y: y - 26, w: 60, h: 52, k: 'jack', label: '' })),
+          ],
+          hides: [
+            { x: 2450, y: 300, w: 360, h: 280, k: 'corn', label: '옥수수밭' },
+            { x: 2750, y: 1750, w: 340, h: 260, k: 'corn', label: '옥수수밭' },
+            { x: 460, y: 660, w: 320, h: 260, k: 'corn', label: '옥수수밭' },
+          ],
+        },
+        scatter: [
+          { k: 'grave', w: 64, h: 46, n: 12, gap: 60, area: [200, 1560, 920, 860] },
+          { k: 'coffin', label: '관 속', w: 160, h: 84, n: 3, hide: true, area: [200, 1560, 920, 860], gap: 50 },
+          { k: 'deadtree', w: 100, h: 100, n: 18, gap: 80 },
+          { k: 'pumpkins', label: '호박 더미', w: 190, h: 140, n: 8, hide: true },
+          { k: 'hay', label: '짚더미', w: 170, h: 140, n: 4, hide: true },
+          { k: 'pumpkin', w: 70, h: 60, n: 10, gap: 60 },
+          { k: 'rock', w: 110, h: 80, n: 5 },
+        ],
+      },
+    }),
+    space: {
+      name: '우주정거장 냥-7', desc: '정전된 우주정거장 · 비상등 (어둠) · 70초', w: 4000, h: 2800, time: 70, hold: 6, sniff: 1200, view: 500, night: true, lamp: 'tech',
+      spawn: [[200, 360], [300, 420], [3800, 2620], [3700, 2560]],
+      boxes: [[700, 500], [1200, 350], [2000, 1150], [2300, 600], [3420, 850], [3800, 500], [2000, 1400], [700, 2200], [1200, 1900], [1650, 2200], [2350, 1800], [3300, 1800], [3100, 2700], [3900, 1600]],
+      build() {
+        const B = (x, y, w, h, k, label = '') => ({ x, y, w, h, k, label });
+        const crate = (x, y, w = 110, h = 110) => B(x, y, w, h, 'crate');
+        return {
+          rooms: [
+            { x: 0, y: 0, w: 1500, h: 1300, k: 'metal', label: '거주 구역' },
+            { x: 1500, y: 0, w: 1000, h: 1300, k: 'metal', label: '함교' },
+            { x: 2500, y: 0, w: 1500, h: 1300, k: 'metal', label: '연구실' },
+            { x: 0, y: 1300, w: 4000, h: 200, k: 'grate', label: '' },
+            { x: 0, y: 1500, w: 1400, h: 1300, k: 'metal', label: '화물칸' },
+            { x: 1400, y: 1500, w: 1200, h: 1300, k: 'grate', label: '' },
+            { x: 2600, y: 1500, w: 1400, h: 1300, k: 'grass', label: '온실' },
+          ],
+          solids: [
+            ...wallsV(1500, [[0, 500], [720, 1300]], 'hull'), ...wallsV(2500, [[0, 500], [720, 1300]], 'hull'),
+            ...wallsH(1300, [[0, 500], [720, 1700], [1920, 2950], [3170, 4000]], 'hull'),
+            ...wallsH(1500, [[0, 500], [720, 1700], [1920, 2300], [2520, 3300], [3520, 4000]], 'hull'),
+            ...wallsV(1400, [[1500, 2000], [2220, 2800]], 'hull'), ...wallsV(2600, [[1500, 2300], [2520, 2800]], 'hull'),
+            // 함교
+            B(1600, 0, 800, 50, 'window'), B(1650, 190, 180, 70, 'console'), B(1910, 140, 180, 70, 'console'), B(2170, 190, 180, 70, 'console'),
+            B(1850, 780, 300, 200, 'holo', '홀로맵'),
+            // 거주 구역
+            crate(300, 1000), crate(1100, 470),
+            // 연구실
+            ...[2650, 2850, 3050, 3250].map(x => B(x, 150, 110, 110, 'tank')),
+            B(2700, 600, 240, 90, 'lab', '분석대'), B(3100, 600, 240, 90, 'lab', '분석대'), B(3500, 600, 240, 90, 'lab', '분석대'),
+            // 화물칸
+            crate(150, 1650), crate(400, 1700, 160, 110), crate(150, 1900), crate(700, 1650), crate(900, 2000, 160, 110), crate(300, 2300), crate(600, 2560), crate(1100, 2380), crate(1000, 1700),
+            // 반응로
+            B(1850, 1950, 300, 300, 'reactor', '반응로'), B(1550, 2580, 180, 70, 'console'), B(2270, 2580, 180, 70, 'console'),
+            // 온실
+            ...[[2750, 1650], [3150, 1600], [3650, 1700], [2900, 2300], [3400, 2100], [2700, 2650]].map(([x, y]) => B(x, y, 90, 90, 'tree')),
+            B(3300, 2600, 60, 60, 'pot'), B(3900, 1900, 60, 60, 'pot'),
+          ],
+          hides: [
+            ...[0, 1, 2, 3].map(i => B(120 + i * 320, 120, 200, 110, 'pod', '수면 캡슐')), ...[0, 1, 2].map(i => B(120 + i * 320, 700, 200, 110, 'pod', '수면 캡슐')),
+            B(880, 1200, 220, 72, 'locker', '사물함'),
+            B(3700, 150, 200, 150, 'cargo', '화물 더미'), B(2620, 950, 130, 110, 'box', '샘플 상자'), B(3400, 1000, 120, 90, 'vent', '환풍구'),
+            B(1000, 1350, 120, 90, 'vent', '환풍구'), B(2200, 1350, 120, 90, 'vent', '환풍구'), B(3700, 1360, 120, 90, 'vent', '환풍구'),
+            B(450, 2000, 220, 150, 'cargo', '화물 그물'), B(1080, 2600, 220, 150, 'cargo', '화물 그물'), B(120, 2550, 130, 110, 'box', '상자'),
+            B(1500, 1600, 120, 90, 'vent', '환풍구'), B(2400, 2650, 120, 90, 'vent', '환풍구'),
+            B(2900, 1900, 220, 170, 'bush', '풀숲'), B(3500, 1850, 230, 170, 'bush', '풀숲'), B(3150, 2450, 240, 180, 'bush', '풀숲'), B(3550, 2250, 200, 160, 'bush', '풀숲'),
+          ],
+          lights: [[2000, 600, 240], [1700, 380, 200], [2300, 380, 200], [400, 520, 220], [1100, 950, 220], [3000, 450, 220], [3600, 950, 220],
+            [600, 1400, 200], [1500, 1400, 200], [2600, 1400, 200], [3500, 1400, 200], [400, 1850, 220], [1000, 2300, 220], [2000, 2100, 430], [3000, 1950, 240], [3500, 2500, 240]],
+        };
+      },
+    },
   };
-  const OPAQUE_K = new Set(['wall', 'tree', 'shelf', 'wardrobe', 'fridge', 'tower', 'stall', 'gym', 'pine', 'palm', 'rock', 'snowman', 'hanok', 'dam', 'cherry', 'pocha']);
+  const OPAQUE_K = new Set(['wall', 'tree', 'shelf', 'wardrobe', 'fridge', 'tower', 'stall', 'gym', 'pine', 'palm', 'rock', 'snowman', 'hanok', 'dam', 'cherry', 'pocha', 'piano', 'mansion', 'deadtree', 'hull', 'crate', 'tank', 'reactor']);
 
   // 지금 맵 상태 (setMap으로 바뀜)
   let MAP_ID = '', W = 0, H = 0, ROUND_TIME = 60, HOLD = 5, ROOMS = [], SOLIDS = [], HIDES = [], SPAWN = [], OPAQUE = [], BOXES = [];
@@ -413,7 +557,7 @@
     for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++)
       walk[gy * GW + gx] = blockedPt(gx * CELL + CELL / 2, gy * CELL + CELL / 2, R * 0.85) ? 0 : 1;
     gScore = new Float32Array(N); came = new Int32Array(N); stamp = new Uint32Array(N); closedS = new Uint32Array(N); curStamp = 0;
-    Object.assign(api, { MAP_ID, SNIFF, VIEW, NIGHT: !!M.night, LIGHTS: b.lights || [], W, H, ROUND_TIME, HOLD, ROOMS, SOLIDS, HIDES, SPAWN, BOXES, GW, GH, walk });
+    Object.assign(api, { MAP_ID, SNIFF, VIEW, NIGHT: !!M.night, LAMP: M.lamp || 'chorong', LIGHTS: b.lights || [], W, H, ROUND_TIME, HOLD, ROOMS, SOLIDS, HIDES, SPAWN, BOXES, GW, GH, walk });
   }
 
   /* ---------------- 길찾기 (A*) ---------------- */
@@ -506,7 +650,7 @@
     return {
       ts, mode, rounds: M.rounds,
       map: MAP_ID, roundTime: mode === 'tag' ? Math.round(ROUND_TIME * (ts === 1 ? 0.8 : 1 + 0.07 * (ts - 2))) : M.time,
-      shots: [], nades: [], mobs: [], mobSeq: 0, wave: 0, waveLeft: 0, spawnT: 0, breakT: 0, cp: null, killGoal: Math.max(5, ts * 5), flowT: 0,
+      shots: [], nades: [], mobs: [], mobSeq: 0, combo: 0, comboT: 0, pts: 0, bestCombo: 0, wave: 0, waveLeft: 0, spawnT: 0, breakT: 0, cp: null, killGoal: Math.max(5, ts * 5), flowT: 0,
       phase: 'lobby', round: 0, scores: [0, 0], chaserTeam: 0, timeLeft: ROUND_TIME, countT: 0, endT: 0, hold: 0,
       roundId: 0, clock: 0, lastWin: -1, lastReason: '', events: [],
       cats: Array.from({ length: n }, (_, i) => makeCat(i, ts, mode)),
@@ -547,7 +691,7 @@
   }
   function nextRound(g) {
     g.round++;
-    if (g.round >= (g.rounds || ROUNDS)) { g.phase = 'over'; g.events.push({ k: 'over', scores: g.scores.slice(), winner: g.lastWin, wave: g.wave }); }
+    if (g.round >= (g.rounds || ROUNDS)) { g.phase = 'over'; g.events.push({ k: 'over', scores: g.scores.slice(), winner: g.lastWin, wave: g.wave, pts: g.pts, bc: g.bestCombo }); }
     else beginRound(g);
   }
   const isHeld = (c, g) => g.phase !== 'play' || (c.team === g.chaserTeam && g.hold > 0);
@@ -878,7 +1022,13 @@
   function hurtMob(g, m, dmg, by) {
     if (m.hp <= 0) return;
     m.hp -= dmg; m.hitT = 0.15;
-    if (m.hp <= 0) { const k = g.cats[by]; if (k) k.kills++; g.events.push({ k: 'mobdie', u: m.u, x: Math.round(m.x), y: Math.round(m.y), kind: m.kind, by }); }
+    if (m.hp <= 0) {
+      const k = g.cats[by]; if (k) k.kills++;
+      // 팀 콤보: 2.5초 안에 계속 부수면 배율이 오른다
+      g.combo = g.comboT > 0 ? g.combo + 1 : 1; g.comboT = 2.5; g.bestCombo = Math.max(g.bestCombo, g.combo);
+      g.pts += (MOBS[m.kind] || MOBS.vac).pts * Math.min(10, 1 + Math.floor(g.combo / 5));
+      g.events.push({ k: 'mobdie', u: m.u, x: Math.round(m.x), y: Math.round(m.y), kind: m.kind, by, c: g.combo });
+    }
   }
   function fireCat(g, c) {
     const W0 = WEAPONS[c.wpn] || WEAPONS.pistol;
@@ -908,10 +1058,13 @@
       }
     }
   }
-  const MOBS = { vac: { hp: 60, spd: 150, dmg: 12, r: 26 }, mini: { hp: 25, spd: 230, dmg: 6, r: 16 }, big: { hp: 320, spd: 95, dmg: 28, r: 40 } };
+  const MOBS = { vac: { hp: 60, spd: 150, dmg: 12, r: 26, pts: 10 }, mini: { hp: 25, spd: 230, dmg: 6, r: 16, pts: 5 }, big: { hp: 320, spd: 95, dmg: 28, r: 40, pts: 50 }, boss: { hp: 1400, spd: 85, dmg: 40, r: 62, pts: 500 } };
+  // 웨이브를 넘길 때마다 모두에게 새 무기
+  const UNLOCK = { 2: 'shotgun', 3: 'rapid', 5: 'rocket', 7: 'sniper' };
   function spawnMob(g) {
     const n = g.wave, roll = Math.random();
-    const kind = n >= 3 && roll < 0.12 + n * 0.01 ? 'big' : roll < 0.45 ? 'mini' : 'vac', M = MOBS[kind];
+    const boss = n % 5 === 0 && !g.bossOut; if (boss) g.bossOut = true;
+    const kind = boss ? 'boss' : n >= 3 && roll < 0.12 + n * 0.01 ? 'big' : roll < 0.45 ? 'mini' : 'vac', M = MOBS[kind];
     // 고양이들한테서 먼 가장자리에서 나온다
     let best = null, bd = -1;
     for (let k = 0; k < 14; k++) {
@@ -1040,18 +1193,19 @@
       const steps = 2;
       for (let k = 0; k < steps && sh.life > 0; k++) {
         sh.x += sh.vx * dt / steps; sh.y += sh.vy * dt / steps;
-        if (shotBlocked(sh.x, sh.y)) { sh.life = 0; break; }
+        if (shotBlocked(sh.x, sh.y)) { sh.life = 0; sh.hit = true; break; }
         let hitBlock = false;
         for (const b of g.blocks) if (sh.x > b.x && sh.x < b.x + b.w && sh.y > b.y && sh.y < b.y + b.h) { if (b.team !== sh.team) { hitBlock = true; if (b.hp != null) b.hp -= sh.dmg * 0.5; } }
-        if (hitBlock) { sh.life = 0; break; }
+        if (hitBlock) { sh.life = 0; sh.hit = true; break; }
         for (const c of g.cats) {
           if (c.dead || c.id === sh.owner || hyp(c.x - sh.x, c.y - sh.y) > c.r + 6) continue;
           if (c.team === sh.team) { if (sh.w === 'churu') { c.hp = Math.min(c.maxHp, c.hp + sh.dmg); sh.life = 0; g.events.push({ k: 'heal', id: c.id }); } continue; }
-          hurt(g, c, sh.dmg, sh.owner, sh.x - sh.vx * 0.05, sh.y - sh.vy * 0.05); sh.life = 0; break;
+          hurt(g, c, sh.dmg, sh.owner, sh.x - sh.vx * 0.05, sh.y - sh.vy * 0.05); sh.life = 0; sh.hit = true; break;
         }
-        if (sh.life > 0) for (const m of g.mobs) if (m.hp > 0 && hyp(m.x - sh.x, m.y - sh.y) < m.r + 6) { hurtMob(g, m, sh.dmg, sh.owner); sh.life = 0; break; }
+        if (sh.life > 0) for (const m of g.mobs) if (m.hp > 0 && hyp(m.x - sh.x, m.y - sh.y) < m.r + 6) { hurtMob(g, m, sh.dmg, sh.owner); sh.life = 0; sh.hit = true; break; }
       }
       sh.life -= dt;
+      if (sh.life <= 0 && WEAPONS[sh.w] && WEAPONS[sh.w].boom) boom(g, sh.x - (sh.hit ? sh.vx * 0.02 : 0), sh.y - (sh.hit ? sh.vy * 0.02 : 0), sh.team, sh.owner);
     }
     g.shots = g.shots.filter(s => s.life > 0);
     // 털뭉치 폭탄
@@ -1066,7 +1220,7 @@
         if (c.dead || hyp(c.x - bx.x, c.y - bx.y) > c.r + 22) continue;
         if (g.mode === 'hero') { c.hp = Math.min(c.maxHp, c.hp + 60); bx.t = 10; g.events.push({ k: 'pick', id: c.id, s: 'heal', x: bx.x, y: bx.y }); break; }
         const roll = Math.random();
-        if (roll < 0.55) { const w = ['shotgun', 'rapid', 'sniper'][(Math.random() * 3) | 0]; c.wpn = w; g.events.push({ k: 'pick', id: c.id, s: 'w:' + w, x: bx.x, y: bx.y }); }
+        if (roll < 0.55) { const pool = g.mode === 'zombie' ? ['shotgun', 'rapid', 'sniper', 'rocket', 'rocket'] : ['shotgun', 'rapid', 'sniper'], w = pool[(Math.random() * pool.length) | 0]; c.wpn = w; g.events.push({ k: 'pick', id: c.id, s: 'w:' + w, x: bx.x, y: bx.y }); }
         else if (roll < 0.85 || c.items.length >= TUNE.itemMax) { c.hp = Math.min(c.maxHp, c.hp + 50); g.events.push({ k: 'pick', id: c.id, s: 'heal', x: bx.x, y: bx.y }); }
         else { const it = ITEMS[(Math.random() * ITEMS.length) | 0].id; c.items.push(it); g.events.push({ k: 'pick', id: c.id, s: it, x: bx.x, y: bx.y }); }
         bx.t = TUNE.boxRespawn + 3; break;
@@ -1091,12 +1245,14 @@
         if (g.breakT > 0) {
           g.breakT -= dt;
           if (g.breakT <= 0) {
-            g.wave++; g.waveLeft = Math.round((5 + g.wave * 4) * (0.6 + g.cats.length * 0.12)); g.spawnT = 0;
+            g.wave++; g.waveLeft = Math.round((5 + g.wave * 4) * (0.6 + g.cats.length * 0.12)); g.spawnT = 0; g.bossOut = false;
+            const uw = UNLOCK[g.wave]; if (uw) { for (const c of g.cats) c.wpn = uw; g.events.push({ k: 'unlock', w: uw }); }
             for (const c of g.cats) if (c.dead) { c.dead = false; c.hp = c.maxHp * 0.6; c.immune = 2; }
             g.events.push({ k: 'wave', n: g.wave });
           }
         } else { g.breakT = 6; g.scores = [g.wave, 0]; if (g.wave > 0) g.events.push({ k: 'waveclear', n: g.wave }); }
       }
+      if (g.comboT > 0) { g.comboT -= dt; if (g.comboT <= 0) g.combo = 0; }
       if (g.waveLeft > 0) { g.spawnT -= dt; if (g.spawnT <= 0) { spawnMob(g); g.waveLeft--; g.spawnT = Math.max(0.25, 1.3 - g.wave * 0.08); } }
       stepMobs(g, dt);
       if (g.cats.every(c => c.dead)) { g.scores = [g.wave, 0]; endRound(g, 1, 'wipe'); }
