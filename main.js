@@ -12,7 +12,7 @@
   const TEAM_NAME = C.TEAM_NAME;
   const PREFIX = 'nyangtag-v1-';
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const VERSION = 'v4.0.0';
+  const VERSION = 'v4.0.1';
   const MAXP = 16; // 최대 8:8
   const MAP_ICON = { house: '🏠', hanok: '🏮', cafe: '☕', snow: '❄️', beach: '🏖️', town: '🏘️', school: '🏫', halloween: '🎃', space: '🚀' };
   const SK_ICON = { trap: '🧶', boost: '🌿', sniff: '👃', pounce: '🐾', nade: '💣', wall: '🧱', shield: '🛡️', camo: '🦎', healburst: '💗' };
@@ -70,6 +70,8 @@
         px[i + 1] = m; // 초록 번짐 제거
       }
     }
+    // GIF 가장자리 2px에 남는 테두리 줄(작대기처럼 보임)을 지운다
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (x < 2 || y < 2 || x >= w - 2 || y >= h - 2) px[(y * w + x) * 4 + 3] = 0;
     ctx.putImageData(d, 0, 0);
   }
   function isGreenBorder(ctx, w, h) {
@@ -224,7 +226,23 @@
   }
 
   let mapCache = null;
+  // 큰 맵 한 장은 폰 GPU 텍스처 한도(4096)를 넘으니 1024 조각으로 잘라 두고 보이는 조각만 그린다
+  const TILE = 1024;
   function buildMap() {
+    const full = buildMapFull(), tiles = [];
+    for (let ty = 0; ty < H; ty += TILE) for (let tx = 0; tx < W; tx += TILE) {
+      // 2px 겹쳐서 확대할 때 조각 사이 틈(가는 줄)이 안 보이게
+      const tw = Math.min(TILE + 2, W - tx), th = Math.min(TILE + 2, H - ty), c = document.createElement('canvas');
+      c.width = tw; c.height = th; c.getContext('2d').drawImage(full, tx, ty, tw, th, 0, 0, tw, th);
+      tiles.push({ x: tx, y: ty, w: tw, h: th, c });
+    }
+    full.width = full.height = 0;
+    return tiles;
+  }
+  function drawMapTiles(g, L, R2, T, B) {
+    for (const t of mapCache) if (t.x < R2 && t.x + t.w > L && t.y < B && t.y + t.h > T) g.drawImage(t.c, t.x, t.y);
+  }
+  function buildMapFull() {
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const g = cv.getContext('2d');
     const rnd = rand(4242);
@@ -1580,8 +1598,10 @@
   /* ---------------- 화면 크기 ---------------- */
   const worldC = $('world'), fxC = $('fx'), wg = worldC.getContext('2d'), xg = fxC.getContext('2d'), spritesEl = $('sprites');
   let vw = innerWidth, vh = innerHeight, dpr = 1, zoom = 1;
+  // 화질 단계: 프레임이 계속 느리면 해상도를 한 단계씩 내린다 (폰에서 렉 방지)
+  const perf = { cap: (matchMedia('(pointer: coarse)').matches ? 1.5 : 1.75), ema: 16, slowT: 0, low: false };
   function resize() {
-    vw = innerWidth; vh = innerHeight; dpr = Math.min(devicePixelRatio || 1, 2);
+    vw = innerWidth; vh = innerHeight; dpr = Math.min(devicePixelRatio || 1, perf.cap);
     for (const c of [worldC, fxC]) { c.width = Math.round(vw * dpr); c.height = Math.round(vh * dpr); }
     zoom = clamp(Math.sqrt(vw * vh / (1000 * 650)), 0.55, 1.6);
   }
@@ -2709,9 +2729,10 @@
   function stepAmbient(dt, L, R2, T, B) {
     const cfg = AMB[C.MAP_ID] || {};
     if (amb.map !== C.MAP_ID) { amb.parts = []; amb.map = C.MAP_ID; }
-    const AK = ['petals', 'snow', 'leaves', 'fireflies', 'dust', 'bats', 'wisps', 'motes'], want = AK.reduce((n, k) => n + (cfg[k] || 0), 0);
+    const AK = ['petals', 'snow', 'leaves', 'fireflies', 'dust', 'bats', 'wisps', 'motes'], want = AK.reduce((n, k) => n + (cfg[k] || 0), 0) * (perf.low ? .4 : 1);
+    if (amb.parts.length > want) amb.parts.length = Math.floor(want);
     while (amb.parts.length < want) {
-      const kinds = []; for (const k of AK) if (cfg[k] && amb.parts.filter(p => p.k === k).length < cfg[k]) kinds.push(k);
+      const kinds = []; for (const k of AK) if (cfg[k] && amb.parts.filter(p => p.k === k).length < cfg[k] * (perf.low ? .4 : 1)) kinds.push(k);
       const k = kinds[0]; if (!k) break;
       amb.parts.push({ k, x: L + Math.random() * (R2 - L), y: T + Math.random() * (B - T), ph: Math.random() * 7, s: .6 + Math.random() * .8 });
     }
@@ -2728,6 +2749,14 @@
       if (p.y < T - 40) p.y = B + 30; if (p.y > B + 40) { p.y = T - 30; p.x = L + Math.random() * (R2 - L); }
     }
   }
+  // 반짝이 입자는 매 프레임 그라데이션을 만들지 말고 미리 그린 빛 한 장을 찍는다
+  const glowCache = {};
+  function glowSprite(rgb) {
+    if (glowCache[rgb]) return glowCache[rgb];
+    const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, `rgba(${rgb},1)`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    return (glowCache[rgb] = c);
+  }
   function drawAmbient(g, now, glowPass) {
     for (const p of amb.parts) {
       if ((p.k === 'fireflies' || p.k === 'wisps' || p.k === 'motes') !== glowPass) continue;
@@ -2736,9 +2765,9 @@
       else if (p.k === 'leaves') { g.save(); g.translate(p.x, p.y); g.rotate(now * 1.5 + p.ph); g.fillStyle = ['#e76f51', '#f4a261', '#e9c46a'][(p.ph * 10 | 0) % 3]; g.beginPath(); g.ellipse(0, 0, 8 * p.s, 4 * p.s, 0, 0, 7); g.fill(); g.restore(); }
       else if (p.k === 'dust') { g.fillStyle = 'rgba(255,240,200,.35)'; g.beginPath(); g.arc(p.x, p.y, 1.6, 0, 7); g.fill(); }
       else if (p.k === 'bats') { g.save(); g.translate(p.x, p.y); g.scale(p.s, p.s); const f = Math.sin(now * 18 + p.ph) * 8; g.fillStyle = 'rgba(15,10,25,.85)'; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(-14, -10 - f, -26, -2 - f); g.quadraticCurveTo(-16, 0, -12, 6); g.quadraticCurveTo(-6, 2, 0, 8); g.quadraticCurveTo(6, 2, 12, 6); g.quadraticCurveTo(16, 0, 26, -2 - f); g.quadraticCurveTo(14, -10 - f, 0, 0); g.fill(); g.restore(); }
-      else if (p.k === 'wisps') { const a = .45 + Math.sin(now * 2 + p.ph * 5) * .4; const gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, 18); gr.addColorStop(0, `rgba(170,255,220,${a})`); gr.addColorStop(1, 'rgba(120,200,255,0)'); g.fillStyle = gr; g.fillRect(p.x - 18, p.y - 18, 36, 36); }
+      else if (p.k === 'wisps') { g.globalAlpha = clamp(.45 + Math.sin(now * 2 + p.ph * 5) * .4, 0, 1); g.drawImage(glowSprite('170,255,220'), p.x - 18, p.y - 18, 36, 36); g.globalAlpha = 1; }
       else if (p.k === 'motes') { const a = .3 + Math.sin(now * 2.5 + p.ph * 3) * .25; g.fillStyle = `rgba(120,220,255,${a})`; g.beginPath(); g.arc(p.x, p.y, 1.8 * p.s, 0, 7); g.fill(); }
-      else if (p.k === 'fireflies') { const a = .5 + Math.sin(now * 3 + p.ph * 5) * .5; const gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, 14); gr.addColorStop(0, `rgba(220,255,140,${a})`); gr.addColorStop(1, 'rgba(220,255,140,0)'); g.fillStyle = gr; g.fillRect(p.x - 14, p.y - 14, 28, 28); }
+      else if (p.k === 'fireflies') { g.globalAlpha = clamp(.5 + Math.sin(now * 3 + p.ph * 5) * .5, 0, 1); g.drawImage(glowSprite('220,255,140'), p.x - 14, p.y - 14, 28, 28); g.globalAlpha = 1; }
     }
   }
   function drawWater(g, now, L, R2, T, B) {
@@ -2799,23 +2828,27 @@
   }
   // 밤: 화면을 어둡게 덮고 등불·내 주변만 밝힌다
   function drawNight(me, myTeam, g0, sx, sy) {
-    const cw = fxC.width, ch = fxC.height;
+    // 어둠은 흐릿해도 티가 안 나니 반 해상도로 그리고 늘려 붙인다
+    const NS = 0.5, cw = Math.ceil(fxC.width * NS), ch = Math.ceil(fxC.height * NS);
     if (nightC.width !== cw || nightC.height !== ch) { nightC.width = cw; nightC.height = ch; }
     ng.setTransform(1, 0, 0, 1, 0, 0); ng.globalCompositeOperation = 'source-over';
     ng.fillStyle = C.LAMP === 'pumpkin' ? 'rgba(22,10,38,.76)' : C.LAMP === 'tech' ? 'rgba(3,7,20,.86)' : 'rgba(10,12,38,.8)'; ng.fillRect(0, 0, cw, ch);
-    ng.setTransform(dpr * zoom, 0, 0, dpr * zoom, dpr * sx, dpr * sy);
+    ng.setTransform(dpr * zoom * NS, 0, 0, dpr * zoom * NS, dpr * sx * NS, dpr * sy * NS);
     ng.globalCompositeOperation = 'destination-out';
-    const hole = (x, y, r, a = 1) => { const gr = ng.createRadialGradient(x, y, r * .25, x, y, r); gr.addColorStop(0, `rgba(0,0,0,${a})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); ng.fillStyle = gr; ng.fillRect(x - r, y - r, r * 2, r * 2); };
+    const L = app.cam.x - vw / zoom / 2, R2 = app.cam.x + vw / zoom / 2, T = app.cam.y - vh / zoom / 2, B = app.cam.y + vh / zoom / 2;
+    const onScr = (x, y, r) => x + r > L && x - r < R2 && y + r > T && y - r < B;
+    const hole = (x, y, r, a = 1) => { if (!onScr(x, y, r)) return; const gr = ng.createRadialGradient(x, y, r * .25, x, y, r); gr.addColorStop(0, `rgba(0,0,0,${a})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); ng.fillStyle = gr; ng.fillRect(x - r, y - r, r * 2, r * 2); };
     const flick = performance.now() / 1000;
     for (const [lx, ly, lr] of C.LIGHTS) hole(lx, ly, lr * (1 + Math.sin(flick * 7 + lx) * .02), .95);
     for (const c of g0.cats) {
       if (c === me) hole(c.x, c.y, 360, 1);
       else if (myTeam < 0 || c.team === myTeam) hole(c.x, c.y, 200, .8);
     }
-    xg.save(); xg.setTransform(1, 0, 0, 1, 0, 0); xg.drawImage(nightC, 0, 0); xg.restore();
+    xg.save(); xg.setTransform(1, 0, 0, 1, 0, 0); xg.drawImage(nightC, 0, 0, fxC.width, fxC.height); xg.restore();
     // 등불 빛번짐 (따뜻한 주황)
     xg.save(); xg.globalCompositeOperation = 'lighter';
     for (const [lx, ly, lr] of C.LIGHTS) {
+      if (!onScr(lx, ly - 30, lr)) continue;
       const gr = xg.createRadialGradient(lx, ly - 30, 0, lx, ly - 30, lr * .9);
       const gc = C.LAMP === 'tech' ? (lr > 300 ? '90,200,255' : (lx + ly) % 3 ? '80,200,255' : '255,70,90') : '255,150,60';
       gr.addColorStop(0, `rgba(${gc},${C.LAMP === 'tech' ? .2 + (lr > 300 ? Math.sin(performance.now() / 400) * .06 : 0) : .22})`); gr.addColorStop(1, `rgba(${gc},0)`);
@@ -2910,8 +2943,8 @@
     const sx = vw / 2 - app.cam.x * zoom + shX, sy = vh / 2 - app.cam.y * zoom + shY;
     wg.setTransform(1, 0, 0, 1, 0, 0); wg.fillStyle = '#1b2a25'; wg.fillRect(0, 0, worldC.width, worldC.height);
     wg.setTransform(dpr * zoom, 0, 0, dpr * zoom, dpr * sx, dpr * sy);
-    wg.drawImage(mapCache, 0, 0);
     const vL = app.cam.x - vw / zoom / 2 - 60, vR = app.cam.x + vw / zoom / 2 + 60, vT = app.cam.y - vh / zoom / 2 - 60, vB = app.cam.y + vh / zoom / 2 + 60;
+    drawMapTiles(wg, vL - 40, vR + 40, vT - 40, vB + 40);
     drawWater(wg, now, vL, vR, vT, vB);
     stepAmbient(rdt, vL, vR, vT, vB);
     const vis = c => myTeam < 0 || C.visibleTo(g, myTeam, c);
@@ -2985,9 +3018,15 @@
     if (isCombat(g) && me && !me.dead && g.phase === 'play') {
       const W0 = C.WEAPONS[me.wpn] || C.WEAPONS.pistol, len = Math.min(W0.spd * W0.life, 900), a = me.gunA || 0;
       const lg = wg.createLinearGradient(me.x, me.y, me.x + Math.cos(a) * len, me.y + Math.sin(a) * len);
-      lg.addColorStop(0, 'rgba(255,255,255,.35)'); lg.addColorStop(1, 'rgba(255,255,255,0)');
-      wg.strokeStyle = lg; wg.lineWidth = me.wpn === 'sniper' ? 2 : 3; wg.setLineDash(me.wpn === 'sniper' ? [] : [10, 10]);
-      wg.beginPath(); wg.moveTo(me.x + Math.cos(a) * 30, me.y + Math.sin(a) * 30); wg.lineTo(me.x + Math.cos(a) * len, me.y + Math.sin(a) * len); wg.stroke(); wg.setLineDash([]);
+      // 조준선은 짧은 점 몇 개만 (긴 작대기처럼 안 보이게), 저격만 가는 실선
+      if (me.wpn === 'sniper') {
+        lg.addColorStop(0, 'rgba(255,90,140,.35)'); lg.addColorStop(1, 'rgba(255,90,140,0)');
+        wg.strokeStyle = lg; wg.lineWidth = 1.5; wg.beginPath(); wg.moveTo(me.x + Math.cos(a) * 34, me.y + Math.sin(a) * 34); wg.lineTo(me.x + Math.cos(a) * len, me.y + Math.sin(a) * len); wg.stroke();
+      } else {
+        wg.fillStyle = 'rgba(255,255,255,.5)';
+        for (let k = 0; k < 3; k++) { const d = 44 + k * 18; wg.globalAlpha = .55 - k * .15; wg.beginPath(); wg.arc(me.x + Math.cos(a) * d, me.y + Math.sin(a) * d, 3.2 - k * .6, 0, 7); wg.fill(); }
+        wg.globalAlpha = 1;
+      }
     }
     const order = [...g.cats].sort((a, b) => a.y - b.y);
     for (const c of order) {
@@ -3380,6 +3419,14 @@
   }
   function frameBody(now) {
     let rdt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (!document.hidden) {
+      perf.ema += (rdt * 1000 - perf.ema) * 0.05;
+      perf.slowT = perf.ema > 24 ? perf.slowT + rdt : 0;
+      if (perf.slowT > 2 && (perf.cap > 1 || !perf.low)) {
+        if (perf.cap > 1) { perf.cap = Math.max(1, perf.cap - 0.25); resize(); } else perf.low = true;
+        perf.slowT = 0; perf.ema = 16;
+      }
+    }
     // 마지막 얼음은 슬로모션
     let dt = rdt;
     if (fx.slow > 0) { fx.slow -= rdt; dt = rdt * .3; }
