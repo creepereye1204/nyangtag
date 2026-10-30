@@ -12,7 +12,7 @@
   const TEAM_NAME = C.TEAM_NAME;
   const PREFIX = 'nyangtag-v1-';
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const VERSION = 'v4.0.1';
+  const VERSION = 'v4.1.0';
   const MAXP = 16; // 최대 8:8
   const MAP_ICON = { house: '🏠', hanok: '🏮', cafe: '☕', snow: '❄️', beach: '🏖️', town: '🏘️', school: '🏫', halloween: '🎃', space: '🚀' };
   const SK_ICON = { trap: '🧶', boost: '🌿', sniff: '👃', pounce: '🐾', nade: '💣', wall: '🧱', shield: '🛡️', camo: '🦎', healburst: '💗' };
@@ -74,6 +74,30 @@
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (x < 2 || y < 2 || x >= w - 2 || y >= h - 2) px[(y * w + x) * 4 + 3] = 0;
     ctx.putImageData(d, 0, 0);
   }
+  // 초록을 뺀 고양이에 스티커처럼 흰 테두리 + 잉크 외곽선을 두른다 (어두운 맵에서도 잘 보이게)
+  const STK = 5;
+  function silhouette(mask, col) {
+    const c = document.createElement('canvas'); c.width = mask.width; c.height = mask.height;
+    const g = c.getContext('2d'); g.drawImage(mask, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = col; g.fillRect(0, 0, c.width, c.height);
+    return c;
+  }
+  function sticker(src, w, h) {
+    // 진한 픽셀만, 그리고 한 번 깎아서 남은 초록 찌꺼기 점에는 테두리가 안 생기게
+    const sd = src.getContext('2d').getImageData(0, 0, w, h).data, m = new ImageData(w, h), md = m.data;
+    const solid = (x, y) => x >= 0 && y >= 0 && x < w && y < h && sd[(y * w + x) * 4 + 3] > 150;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++)
+      if (solid(x, y) && solid(x - 1, y) && solid(x + 1, y) && solid(x, y - 1) && solid(x, y + 1)) md[(y * w + x) * 4 + 3] = 255;
+    const mc = document.createElement('canvas'); mc.width = w; mc.height = h; mc.getContext('2d').putImageData(m, 0, 0);
+    const ink = silhouette(mc, '#1e2a26'), white = silhouette(mc, '#fffaf0');
+    const out = document.createElement('canvas'); out.width = w + STK * 2; out.height = h + STK * 2;
+    const g = out.getContext('2d');
+    for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; g.drawImage(ink, STK + Math.cos(a) * 4.6, STK + Math.sin(a) * 4.6); }
+    for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; g.drawImage(white, STK + Math.cos(a) * 3.2, STK + Math.sin(a) * 3.2); }
+    g.drawImage(src, STK, STK);
+    return out;
+  }
+  // 그리기용 프레임은 GPU 이미지로 바꿔 둔다 (읽기용 캔버스를 매 프레임 다시 올리는 비용 없애기)
+  async function toBitmap(cv) { try { return await createImageBitmap(cv); } catch (e) { return cv; } }
   function isGreenBorder(ctx, w, h) {
     const d = ctx.getImageData(0, 0, w, h).data; let green = 0, n = 0;
     const test = (x, y) => { const i = (y * w + x) * 4, r = d[i], g = d[i + 1], b = d[i + 2]; n++; if (g > 90 && g - Math.max(r, b) > 40) green++; };
@@ -109,14 +133,24 @@
           if (keyed) keyFrame(ctx, cw, ch);
           const dur = Math.max(20, (image.duration || 80000) / 1000) * step;
           image.close();
-          frames.push({ cv, dur }); total += dur;
+          frames.push({ cv: await toBitmap(keyed ? sticker(cv, cw, ch) : cv), dur }); total += dur;
         }
         dec.close();
-        Object.assign(a, { state: 'ok', frames, total, w: cw, h: ch, keyed });
+        const pad = keyed ? STK * 2 : 0;
+        Object.assign(a, { state: 'ok', frames, total, w: cw + pad, h: ch + pad, keyed });
       } catch (e) { a.state = 'fail'; }
       return a;
     })();
     return a.p;
+  }
+  // 얼음 상태 GIF: ctx.filter 는 폰(특히 iOS)에서 느리거나 안 먹으니 얼린 프레임을 한 번 만들어 둔다
+  const icyCache = new WeakMap();
+  function icyFrame(cv) {
+    let o = icyCache.get(cv); if (o) return o;
+    o = document.createElement('canvas'); o.width = cv.width; o.height = cv.height;
+    const g = o.getContext('2d'); g.drawImage(cv, 0, 0);
+    g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(150,215,255,.55)'; g.fillRect(0, 0, o.width, o.height);
+    g.globalCompositeOperation = 'source-over'; icyCache.set(cv, o); return o;
   }
   function animFrame(a, tSec) {
     let t = (tSec * 1000) % a.total;
@@ -1596,10 +1630,10 @@
   }
 
   /* ---------------- 화면 크기 ---------------- */
-  const worldC = $('world'), fxC = $('fx'), wg = worldC.getContext('2d'), xg = fxC.getContext('2d'), spritesEl = $('sprites');
+  const worldC = $('world'), fxC = $('fx'), wg = worldC.getContext('2d', { alpha: false }), xg = fxC.getContext('2d'), spritesEl = $('sprites');
   let vw = innerWidth, vh = innerHeight, dpr = 1, zoom = 1;
-  // 화질 단계: 프레임이 계속 느리면 해상도를 한 단계씩 내린다 (폰에서 렉 방지)
-  const perf = { cap: (matchMedia('(pointer: coarse)').matches ? 1.5 : 1.75), ema: 16, slowT: 0, low: false };
+  // 해상도는 기기 그대로 (화질 안 깎음)
+  const perf = { cap: 3, low: false };
   function resize() {
     vw = innerWidth; vh = innerHeight; dpr = Math.min(devicePixelRatio || 1, perf.cap);
     for (const c of [worldC, fxC]) { c.width = Math.round(vw * dpr); c.height = Math.round(vh * dpr); }
@@ -2007,8 +2041,9 @@
     });
     app.mySlot = L.slots.findIndex(s => s.p === app.myId);
   }
+  function wipe() { const w = $('wipe'); w.classList.remove('on'); void w.offsetWidth; w.classList.add('on'); }
   function enterGame() {
-    app.inGame = true; app.popups = [];
+    app.inGame = true; app.popups = []; wipe();
     fx.parts = []; fx.rings = []; fx.marks = []; fx.screen = []; fx.tension = 0; fx.prevHide = Array(MAXP).fill(-1); fx.bubbles = Array(MAXP).fill(null);
     match.stats = { freezes: 0, rescues: 0, rounds: 0, wonRounds: 0 };
     document.body.classList.toggle('combat', isCombat(app.g)); $('feed').replaceChildren();
@@ -2751,12 +2786,27 @@
   }
   // 반짝이 입자는 매 프레임 그라데이션을 만들지 말고 미리 그린 빛 한 장을 찍는다
   const glowCache = {};
-  function glowSprite(rgb) {
-    if (glowCache[rgb]) return glowCache[rgb];
-    const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gr.addColorStop(0, `rgba(${rgb},1)`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
-    return (glowCache[rgb] = c);
+  function glowSprite(rgb, inner = 0) {
+    const key = rgb + '|' + inner;
+    if (glowCache[key]) return glowCache[key];
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(inner, `rgba(${rgb},1)`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    return (glowCache[key] = c);
   }
+  // 화면 가장자리 비네트도 작은 판 하나를 늘려 붙인다
+  const vigCache = {};
+  function vignette(g, rgb, a, inner) {
+    const key = rgb + '|' + inner;
+    let c = vigCache[key];
+    if (!c) {
+      c = vigCache[key] = document.createElement('canvas'); c.width = c.height = 128;
+      const v = c.getContext('2d'), gr = v.createRadialGradient(64, 64, 64 * inner, 64, 64, 90);
+      gr.addColorStop(0, `rgba(${rgb},0)`); gr.addColorStop(1, `rgba(${rgb},1)`); v.fillStyle = gr; v.fillRect(0, 0, 128, 128);
+    }
+    g.globalAlpha = a; g.drawImage(c, 0, 0, vw, vh); g.globalAlpha = 1;
+  }
+  // 빛 한 장을 (x,y) 중심 반지름 r 로 찍기
+  function glow(g, rgb, x, y, r, a, inner) { g.globalAlpha = a; g.drawImage(glowSprite(rgb, inner), x - r, y - r, r * 2, r * 2); g.globalAlpha = 1; }
   function drawAmbient(g, now, glowPass) {
     for (const p of amb.parts) {
       if ((p.k === 'fireflies' || p.k === 'wisps' || p.k === 'motes') !== glowPass) continue;
@@ -2791,8 +2841,7 @@
     for (let k = 0; k < 6; k++) {
       const cx = ((k * 997 + now * 22) % (W + 1600)) - 800, cy = (k * 613) % H, r = 300 + (k % 3) * 120;
       if (cx + r < L || cx - r > R2 || cy + r < T || cy - r > B) continue;
-      const gr = g.createRadialGradient(cx, cy, 0, cx, cy, r); gr.addColorStop(0, 'rgba(20,30,60,.13)'); gr.addColorStop(1, 'rgba(20,30,60,0)');
-      g.fillStyle = gr; g.fillRect(cx - r, cy - r, r * 2, r * 2);
+      glow(g, '20,30,60', cx, cy, r, .13);
     }
   }
   function drawLanterns(g, now, L, R2, T, B) {
@@ -2801,15 +2850,13 @@
       if (C.LAMP === 'pumpkin') {
         // 호박 등불: 안에서 촛불이 일렁인다
         const f = .75 + Math.sin(now * 11 + lx) * .15 + Math.sin(now * 23 + ly) * .1;
-        const gl = g.createRadialGradient(lx, ly - 4, 2, lx, ly - 4, 50); gl.addColorStop(0, `rgba(255,200,80,${.6 * f})`); gl.addColorStop(1, 'rgba(255,140,30,0)');
-        g.fillStyle = gl; g.fillRect(lx - 50, ly - 54, 100, 100); continue;
+        glow(g, '255,180,70', lx, ly - 4, 50, .6 * f); continue;
       }
       if (C.LAMP === 'tech') {
         if (lr > 300) continue; // 반응로는 자체 발광
         const red = (lx + ly) % 3 === 0, a = now * 3 + lx;
         g.save(); g.translate(lx, ly);
-        const bg = g.createRadialGradient(0, 0, 2, 0, 0, 34); bg.addColorStop(0, red ? 'rgba(255,90,100,.9)' : 'rgba(120,230,255,.9)'); bg.addColorStop(1, 'rgba(0,0,0,0)');
-        g.fillStyle = bg; g.fillRect(-34, -34, 68, 68);
+        glow(g, red ? '255,90,100' : '120,230,255', 0, 0, 34, .9);
         g.rotate(a); g.fillStyle = red ? 'rgba(255,70,90,.18)' : 'rgba(80,200,255,.14)'; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 150, -.25, .25); g.fill(); g.rotate(Math.PI); g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 150, -.25, .25); g.fill();
         g.restore(); g.fillStyle = '#2b2d42'; g.beginPath(); g.arc(lx, ly, 9, 0, 7); g.fill(); g.fillStyle = red ? '#ff4d6d' : '#7de2ff'; g.beginPath(); g.arc(lx, ly, 5, 0, 7); g.fill();
         continue;
@@ -2817,7 +2864,7 @@
       const sw = Math.sin(now * 1.6 + lx * .01) * .12;
       g.save(); g.translate(lx, ly - 40); g.rotate(sw);
       g.strokeStyle = 'rgba(40,30,30,.8)'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, -30); g.lineTo(0, 0); g.stroke();
-      const gl = g.createRadialGradient(0, 18, 4, 0, 18, 60); gl.addColorStop(0, 'rgba(255,170,90,.55)'); gl.addColorStop(1, 'rgba(255,170,90,0)'); g.fillStyle = gl; g.fillRect(-60, -42, 120, 120);
+      glow(g, '255,170,90', 0, 18, 60, .55);
       g.fillStyle = '#c1121f'; rr(g, -14, 0, 28, 18, 6); g.fill();
       g.fillStyle = '#1d4e89'; rr(g, -14, 16, 28, 18, 6); g.fill();
       g.fillStyle = 'rgba(255,220,150,.75)'; g.fillRect(-10, 6, 20, 22);
@@ -2827,32 +2874,50 @@
     }
   }
   // 밤: 화면을 어둡게 덮고 등불·내 주변만 밝힌다
+  // 등불 빛은 안 움직이니 맵마다 한 번, 맵 전체 어둠 판에 구멍과 빛번짐을 구워 둔다
+  const NSS = 0.25, NPAD = 900;
+  const nightStatic = { id: '', cv: null };
+  function nightTint() { return C.LAMP === 'pumpkin' ? 'rgba(22,10,38,.76)' : C.LAMP === 'tech' ? 'rgba(3,7,20,.86)' : 'rgba(10,12,38,.8)'; }
+  function bakeNight() {
+    const cv = document.createElement('canvas'); cv.width = Math.ceil((W + NPAD * 2) * NSS); cv.height = Math.ceil((H + NPAD * 2) * NSS);
+    const g = cv.getContext('2d');
+    g.fillStyle = nightTint(); g.fillRect(0, 0, cv.width, cv.height);
+    g.setTransform(NSS, 0, 0, NSS, NPAD * NSS, NPAD * NSS);
+    g.globalCompositeOperation = 'destination-out';
+    for (const [lx, ly, lr] of C.LIGHTS) glow(g, '0,0,0', lx, ly, lr, .95, .25);
+    g.globalCompositeOperation = 'lighter';
+    for (const [lx, ly, lr] of C.LIGHTS) {
+      const gc = C.LAMP === 'tech' ? (lr > 300 ? '90,200,255' : (lx + ly) % 3 ? '80,200,255' : '255,70,90') : '255,150,60';
+      glow(g, gc, lx, ly - 30, lr * .9, C.LAMP === 'tech' ? .2 : .22);
+    }
+    return cv;
+  }
+  // 밤: 화면을 어둡게 덮고 등불·내 주변만 밝힌다
   function drawNight(me, myTeam, g0, sx, sy) {
-    // 어둠은 흐릿해도 티가 안 나니 반 해상도로 그리고 늘려 붙인다
+    if (nightStatic.id !== C.MAP_ID + W) { nightStatic.id = C.MAP_ID + W; nightStatic.cv = bakeNight(); }
+    // 어둠은 흐릿해도 티가 안 나니 반 해상도 판에 그리고 늘려 붙인다
     const NS = 0.5, cw = Math.ceil(fxC.width * NS), ch = Math.ceil(fxC.height * NS);
     if (nightC.width !== cw || nightC.height !== ch) { nightC.width = cw; nightC.height = ch; }
-    ng.setTransform(1, 0, 0, 1, 0, 0); ng.globalCompositeOperation = 'source-over';
-    ng.fillStyle = C.LAMP === 'pumpkin' ? 'rgba(22,10,38,.76)' : C.LAMP === 'tech' ? 'rgba(3,7,20,.86)' : 'rgba(10,12,38,.8)'; ng.fillRect(0, 0, cw, ch);
+    ng.setTransform(1, 0, 0, 1, 0, 0); ng.globalCompositeOperation = 'source-over'; ng.clearRect(0, 0, cw, ch);
     ng.setTransform(dpr * zoom * NS, 0, 0, dpr * zoom * NS, dpr * sx * NS, dpr * sy * NS);
+    ng.drawImage(nightStatic.cv, -NPAD, -NPAD, W + NPAD * 2, H + NPAD * 2);
     ng.globalCompositeOperation = 'destination-out';
     const L = app.cam.x - vw / zoom / 2, R2 = app.cam.x + vw / zoom / 2, T = app.cam.y - vh / zoom / 2, B = app.cam.y + vh / zoom / 2;
     const onScr = (x, y, r) => x + r > L && x - r < R2 && y + r > T && y - r < B;
-    const hole = (x, y, r, a = 1) => { if (!onScr(x, y, r)) return; const gr = ng.createRadialGradient(x, y, r * .25, x, y, r); gr.addColorStop(0, `rgba(0,0,0,${a})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); ng.fillStyle = gr; ng.fillRect(x - r, y - r, r * 2, r * 2); };
-    const flick = performance.now() / 1000;
-    for (const [lx, ly, lr] of C.LIGHTS) hole(lx, ly, lr * (1 + Math.sin(flick * 7 + lx) * .02), .95);
+    const hole = (x, y, r, a = 1) => { if (onScr(x, y, r)) glow(ng, '0,0,0', x, y, r, a, .25); };
     for (const c of g0.cats) {
       if (c === me) hole(c.x, c.y, 360, 1);
       else if (myTeam < 0 || c.team === myTeam) hole(c.x, c.y, 200, .8);
     }
-    xg.save(); xg.setTransform(1, 0, 0, 1, 0, 0); xg.drawImage(nightC, 0, 0, fxC.width, fxC.height); xg.restore();
-    // 등불 빛번짐 (따뜻한 주황)
-    xg.save(); xg.globalCompositeOperation = 'lighter';
-    for (const [lx, ly, lr] of C.LIGHTS) {
-      if (!onScr(lx, ly - 30, lr)) continue;
-      const gr = xg.createRadialGradient(lx, ly - 30, 0, lx, ly - 30, lr * .9);
-      const gc = C.LAMP === 'tech' ? (lr > 300 ? '90,200,255' : (lx + ly) % 3 ? '80,200,255' : '255,70,90') : '255,150,60';
-      gr.addColorStop(0, `rgba(${gc},${C.LAMP === 'tech' ? .2 + (lr > 300 ? Math.sin(performance.now() / 400) * .06 : 0) : .22})`); gr.addColorStop(1, `rgba(${gc},0)`);
-      xg.fillStyle = gr; xg.fillRect(lx - lr, ly - 30 - lr, lr * 2, lr * 2);
+    // 내 둘레엔 손전등처럼 따뜻한 빛이 살짝 번진다
+    if (me && !me.dead) { ng.globalCompositeOperation = 'lighter'; glow(ng, C.LAMP === 'tech' ? '120,200,255' : '255,190,120', me.x, me.y, 300, .1); }
+    ng.globalCompositeOperation = 'source-over';
+    xg.save(); xg.setTransform(1, 0, 0, 1, 0, 0); xg.drawImage(nightC, 0, 0, fxC.width, fxC.height);
+    // 반응로만 숨쉬듯 밝아졌다 어두워진다
+    if (C.LAMP === 'tech') {
+      xg.setTransform(dpr * zoom, 0, 0, dpr * zoom, dpr * sx, dpr * sy); xg.globalCompositeOperation = 'lighter';
+      const k = Math.sin(performance.now() / 400) * .06;
+      for (const [lx, ly, lr] of C.LIGHTS) if (lr > 300 && k > 0 && onScr(lx, ly, lr)) glow(xg, '90,200,255', lx, ly - 30, lr * .9, k);
     }
     xg.restore();
   }
@@ -2898,8 +2963,7 @@
     g.restore();
     if (m.kind === 'boss') {
       // 왕관 + 붉은 오라
-      const gr = g.createRadialGradient(m.x, m.y, m.r * .8, m.x, m.y, m.r * 1.6); gr.addColorStop(0, 'rgba(255,60,60,.25)'); gr.addColorStop(1, 'rgba(255,60,60,0)');
-      g.fillStyle = gr; g.fillRect(m.x - m.r * 1.6, m.y - m.r * 1.6, m.r * 3.2, m.r * 3.2);
+      glow(g, '255,60,60', m.x, m.y, m.r * 1.6, .25, .5);
       const cy = m.y - m.r - 18 + Math.sin(now * 4) * 3; g.fillStyle = '#ffd166'; g.strokeStyle = '#b8860b'; g.lineWidth = 2;
       g.beginPath(); g.moveTo(m.x - 24, cy + 12); g.lineTo(m.x - 24, cy - 6); g.lineTo(m.x - 12, cy + 4); g.lineTo(m.x, cy - 12); g.lineTo(m.x + 12, cy + 4); g.lineTo(m.x + 24, cy - 6); g.lineTo(m.x + 24, cy + 12); g.closePath(); g.fill(); g.stroke();
       g.fillStyle = '#ef476f'; g.beginPath(); g.arc(m.x, cy + 4, 3.5, 0, 7); g.fill();
@@ -2941,9 +3005,11 @@
     fx.shake *= Math.exp(-rdt * 9); if (fx.shake < .3) fx.shake = 0;
     shX = (Math.random() - .5) * fx.shake * 2; shY = (Math.random() - .5) * fx.shake * 2;
     const sx = vw / 2 - app.cam.x * zoom + shX, sy = vh / 2 - app.cam.y * zoom + shY;
-    wg.setTransform(1, 0, 0, 1, 0, 0); wg.fillStyle = '#1b2a25'; wg.fillRect(0, 0, worldC.width, worldC.height);
-    wg.setTransform(dpr * zoom, 0, 0, dpr * zoom, dpr * sx, dpr * sy);
     const vL = app.cam.x - vw / zoom / 2 - 60, vR = app.cam.x + vw / zoom / 2 + 60, vT = app.cam.y - vh / zoom / 2 - 60, vB = app.cam.y + vh / zoom / 2 + 60;
+    // 맵이 화면을 다 덮으면 바탕을 칠할 필요가 없다 (폰에서 한 번 덜 칠하기)
+    wg.setTransform(1, 0, 0, 1, 0, 0);
+    if (vL + 50 < 0 || vT + 50 < 0 || vR - 50 > W || vB - 50 > H) { wg.fillStyle = '#1b2a25'; wg.fillRect(0, 0, worldC.width, worldC.height); }
+    wg.setTransform(dpr * zoom, 0, 0, dpr * zoom, dpr * sx, dpr * sy);
     drawMapTiles(wg, vL - 40, vR + 40, vT - 40, vB + 40);
     drawWater(wg, now, vL, vR, vT, vB);
     stepAmbient(rdt, vL, vR, vT, vB);
@@ -2990,8 +3056,7 @@
       const bob = Math.sin(now * 3 + bx.u) * 5;
       wg.save(); wg.translate(bx.x, bx.y);
       wg.fillStyle = 'rgba(0,0,0,.25)'; wg.beginPath(); wg.ellipse(0, 18, 18 - bob * .4, 6, 0, 0, 7); wg.fill();
-      const gl = wg.createRadialGradient(0, bob - 4, 0, 0, bob - 4, 46); gl.addColorStop(0, 'rgba(255,230,120,.55)'); gl.addColorStop(1, 'rgba(255,230,120,0)');
-      wg.fillStyle = gl; wg.fillRect(-46, bob - 50, 92, 92);
+      glow(wg, '255,230,120', 0, bob - 4, 46, .55);
       wg.translate(0, bob - 6); wg.rotate(Math.sin(now * 2 + bx.u) * .12);
       wg.fillStyle = '#b5179e'; rr(wg, -17, -15, 34, 30, 6); wg.fill(); wg.strokeStyle = '#fff'; wg.lineWidth = 2; wg.stroke();
       wg.fillStyle = '#ffd166'; wg.fillRect(-4, -15, 8, 30); wg.fillRect(-17, -3, 34, 7);
@@ -3071,12 +3136,12 @@
       // 스쿼시 앤 스트레치
       const spd = hyp(c.vx, c.vy), st = clamp(spd / 1400, 0, .18);
       if (sp && sp.anim) {
-        const a = sp.anim, hh = c.r * (a.keyed ? 3.4 : 3.1), ww = hh * a.w / a.h;
+        const a = sp.anim, hh = c.r * (a.keyed ? 3.6 : 3.1), ww = hh * a.w / a.h;
         const bob = c.moving && !c.frozen ? -Math.abs(Math.sin(c.t * 14)) * 4 : 0;
         wg.save(); wg.translate(c.x, c.y + c.r * (a.keyed ? .95 : .9) + bob); wg.scale(c.facing * (1 + st), 1 - st);
-        if (c.frozen) wg.filter = 'saturate(.3) hue-rotate(170deg) brightness(1.15)';
         if (!a.keyed) { wg.fillStyle = 'rgba(255,255,255,.9)'; rr(wg, -ww / 2 - 3, -hh - 3, ww + 6, hh + 6, 8); wg.fill(); }
-        wg.drawImage(animFrame(a, c.t), -ww / 2, -hh, ww, hh);
+        const fr = animFrame(a, c.t);
+        wg.drawImage(c.frozen ? icyFrame(fr) : fr, -ww / 2, -hh, ww, hh);
         wg.restore();
       } else if (!sp) {
         wg.save(); wg.translate(c.x, c.y); wg.scale(1 + st, 1 - st);
@@ -3130,9 +3195,7 @@
       const a = clamp(s.t / 4, 0, 1);
       for (let k = 0; k < 5; k++) {
         const ox = Math.sin(now * 1.3 + k * 1.7) * 50, oy = Math.cos(now * 1.1 + k * 2.3) * 40;
-        const gr = xg.createRadialGradient(s.x + ox, s.y + oy, 0, s.x + ox, s.y + oy, 90);
-        gr.addColorStop(0, `rgba(255,93,143,${.28 * a})`); gr.addColorStop(1, 'rgba(255,93,143,0)');
-        xg.fillStyle = gr; xg.fillRect(s.x + ox - 90, s.y + oy - 90, 180, 180);
+        glow(xg, '255,93,143', s.x + ox, s.y + oy, 90, .28 * a);
       }
       xg.font = '30px sans-serif'; xg.textAlign = 'center'; xg.globalAlpha = a; xg.fillText('👃', s.x, s.y + Math.sin(now * 4) * 6); xg.globalAlpha = 1;
     }
@@ -3228,13 +3291,10 @@
       const ten = fx.tension, isRunner = me && me.team !== g.chaserTeam;
       if (ten > .15) {
         const a = (ten - .15) * (isRunner ? .55 : .3) * (.7 + fx.beat * .6);
-        const gr = xg.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * .3, vw / 2, vh / 2, Math.max(vw, vh) * .75);
-        gr.addColorStop(0, 'rgba(180,0,40,0)'); gr.addColorStop(1, `rgba(${isRunner ? '180,0,40' : '255,120,0'},${a})`);
-        xg.fillStyle = gr; xg.fillRect(0, 0, vw, vh);
+        vignette(xg, isRunner ? '180,0,40' : '255,120,0', a, .4);
       }
       if (me && me.hidden && g.phase === 'play') {
-        const gr = xg.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * .25, vw / 2, vh / 2, Math.max(vw, vh) * .7);
-        gr.addColorStop(0, 'rgba(10,40,20,0)'); gr.addColorStop(1, 'rgba(10,40,20,.45)'); xg.fillStyle = gr; xg.fillRect(0, 0, vw, vh);
+        vignette(xg, '10,40,20', .45, .35);
       }
       if (myTeam >= 0 && g.reveal[1 - myTeam] > 0 && me && C.sniffed(g, 1 - myTeam, me)) {
         xg.strokeStyle = `rgba(255,93,143,${.5 + Math.sin(now * 12) * .3})`; xg.lineWidth = 10; xg.strokeRect(5, 5, vw - 10, vh - 10);
@@ -3311,16 +3371,27 @@
     }
     fx.tension += (target - fx.tension) * Math.min(1, dt * (target > fx.tension ? 3 : 1));
   }
+  const mini = { key: '', cv: null, vw: 0, vh: 0, sat: 0 };
+  function miniBase(mw, mh, s) {
+    const cv = document.createElement('canvas'); cv.width = Math.ceil((mw + 8) * dpr); cv.height = Math.ceil((mh + 8) * dpr);
+    const g = cv.getContext('2d'); g.scale(dpr, dpr); g.translate(4, 4);
+    g.globalAlpha = .9; g.fillStyle = '#1e2a26'; rr(g, -4, -4, mw + 8, mh + 8, 8); g.fill(); g.globalAlpha = 1;
+    const cols = { wood: '#c9a273', tile: '#cdd8dc', carpet: '#b8a3c9', grass: '#7fb565', stone: '#b5ab9c', road: '#555a60', sand: '#e2cf9f', snow: '#e8f0f8', deck: '#a07a4c', madang: '#57506a', baksuk: '#3c3a48' };
+    for (const r of C.ROOMS) { g.fillStyle = cols[r.k] || FLOOR_COL[r.k] || '#888'; g.fillRect(r.x * s, r.y * s, r.w * s, r.h * s); }
+    g.fillStyle = '#4c3b33'; for (const o of C.SOLIDS) { g.fillStyle = o.k === 'wall' ? '#3e2f28' : o.k === 'tree' || o.k === 'pine' || o.k === 'palm' ? '#2f6e2b' : o.k === 'pond' || o.k === 'fountain' || o.k === 'sea' || o.k === 'stream' ? '#4fa3cf' : o.k === 'hanok' || o.k === 'mansion' ? '#2b2d42' : o.k === 'cherry' ? '#ffb3c6' : o.k === 'hull' ? '#9aa7bd' : o.k === 'reactor' || o.k === 'tank' ? '#4cc9f0' : o.k === 'deadtree' ? '#5a4030' : o.k === 'jack' || o.k === 'pumpkin' ? '#f77f00' : 'rgba(76,59,51,.8)'; g.fillRect(o.x * s, o.y * s, Math.max(1, o.w * s), Math.max(1, o.h * s)); }
+    g.fillStyle = 'rgba(30,100,30,.75)'; for (const h of C.HIDES) g.fillRect(h.x * s, h.y * s, h.w * s, h.h * s);
+    return cv;
+  }
   function drawMinimap(g, me, myTeam) {
     const mw = touchUI ? (Math.min(vw, vh) < 500 ? 110 : 140) : (vw < 560 ? 120 : 180), s = mw / W, mh = H * s;
-    const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--satpx')) || 0;
-    const x0 = vw - mw - 12, y0 = touchUI ? (vw < 560 ? 104 : 92) + sat : vh - mh - 14;
+    // getComputedStyle 를 매 프레임 부르면 스타일 계산이 돌아서 화면 크기가 바뀔 때만 읽는다
+    if (mini.vw !== vw || mini.vh !== vh) { mini.vw = vw; mini.vh = vh; mini.sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--satpx')) || 0; }
+    const x0 = vw - mw - 12, y0 = touchUI ? (vw < 560 ? 104 : 92) + mini.sat : vh - mh - 14;
     xg.save(); xg.translate(x0, y0);
-    xg.globalAlpha = .9; xg.fillStyle = '#1e2a26'; rr(xg, -4, -4, mw + 8, mh + 8, 8); xg.fill(); xg.globalAlpha = 1;
-    const cols = { wood: '#c9a273', tile: '#cdd8dc', carpet: '#b8a3c9', grass: '#7fb565', stone: '#b5ab9c', road: '#555a60', sand: '#e2cf9f', snow: '#e8f0f8', deck: '#a07a4c', madang: '#57506a', baksuk: '#3c3a48' };
-    for (const r of C.ROOMS) { xg.fillStyle = cols[r.k] || FLOOR_COL[r.k] || '#888'; xg.fillRect(r.x * s, r.y * s, r.w * s, r.h * s); }
-    xg.fillStyle = '#4c3b33'; for (const o of C.SOLIDS) { xg.fillStyle = o.k === 'wall' ? '#3e2f28' : o.k === 'tree' || o.k === 'pine' || o.k === 'palm' ? '#2f6e2b' : o.k === 'pond' || o.k === 'fountain' || o.k === 'sea' || o.k === 'stream' ? '#4fa3cf' : o.k === 'hanok' || o.k === 'mansion' ? '#2b2d42' : o.k === 'cherry' ? '#ffb3c6' : o.k === 'hull' ? '#9aa7bd' : o.k === 'reactor' || o.k === 'tank' ? '#4cc9f0' : o.k === 'deadtree' ? '#5a4030' : o.k === 'jack' || o.k === 'pumpkin' ? '#f77f00' : 'rgba(76,59,51,.8)'; xg.fillRect(o.x * s, o.y * s, Math.max(1, o.w * s), Math.max(1, o.h * s)); }
-    xg.fillStyle = 'rgba(30,100,30,.75)'; for (const h of C.HIDES) xg.fillRect(h.x * s, h.y * s, h.w * s, h.h * s);
+    // 바닥·벽·숨는 곳은 안 변하니 한 번 그려 둔 판을 붙인다
+    const key = C.MAP_ID + '|' + mw + '|' + dpr;
+    if (mini.key !== key) { mini.key = key; mini.cv = miniBase(mw, mh, s); }
+    xg.drawImage(mini.cv, -4, -4, mw + 8, mh + 8);
     for (const c of g.cats) {
       // 미니맵에는 우리 팀 눈에 실제로 보이는 상대만
       if (!(myTeam < 0 || c.team === myTeam || (c._vis && C.teamSees(g, myTeam, c)))) continue;
@@ -3419,14 +3490,6 @@
   }
   function frameBody(now) {
     let rdt = Math.min(0.05, (now - last) / 1000); last = now;
-    if (!document.hidden) {
-      perf.ema += (rdt * 1000 - perf.ema) * 0.05;
-      perf.slowT = perf.ema > 24 ? perf.slowT + rdt : 0;
-      if (perf.slowT > 2 && (perf.cap > 1 || !perf.low)) {
-        if (perf.cap > 1) { perf.cap = Math.max(1, perf.cap - 0.25); resize(); } else perf.low = true;
-        perf.slowT = 0; perf.ema = 16;
-      }
-    }
     // 마지막 얼음은 슬로모션
     let dt = rdt;
     if (fx.slow > 0) { fx.slow -= rdt; dt = rdt * .3; }

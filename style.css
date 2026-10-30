@@ -338,3 +338,24 @@ input{border:2.5px solid var(--ink);background:color-mix(in srgb,var(--paper) 70
 #toast{background:#fff8ea;color:#1e2a26;border:2.5px solid #1e2a26;box-shadow:3px 4px 0 #1e2a26}
 .hudbtn,.chatbtn{background:#fff8ea;color:#1e2a26;border:2px solid #1e2a26;box-shadow:2px 2px 0 #1e2a26}
 #feed .fd{background:#fff8ea;color:#1e2a26;border:2px solid #1e2a26}
+/* 게임 중 버튼·조이스틱도 종이+잉크로 */
+.skb{background:#fff8ea;border:2.5px solid #1e2a26;box-shadow:3px 4px 0 #1e2a26;border-radius:18px 20px 17px 21px}
+.skb.chase{box-shadow:3px 4px 0 #1e2a26,inset 0 0 0 3px #ff3b6b}
+#skI{box-shadow:3px 4px 0 #1e2a26}
+#skI.has{background:#ffd9f4}
+#sayBtn{box-shadow:2px 3px 0 #1e2a26;background:#fff8ea}
+.skb.dash{background:var(--tomato);color:#fff8ea;box-shadow:3px 4px 0 #1e2a26}
+.skb.fire{background:#3a86ff;box-shadow:3px 4px 0 #1e2a26,inset 0 0 0 3px #a9def9}
+.skb:active{transform:translate(2px,3px);box-shadow:1px 1px 0 #1e2a26}
+.skb .key{font-family:var(--display);opacity:.45}
+#stickBase{background:rgba(255,248,234,.12);box-shadow:none;border:3px dashed rgba(255,248,234,.6)}
+#stickZone.active #stickBase{border-style:solid;border-color:#fff8ea}
+#stickKnob{background:#fff8ea;border:3px solid #1e2a26;box-shadow:2px 3px 0 #1e2a26}
+#stickKnob::after{content:"";position:absolute;inset:14px;border-radius:50%;border:2px solid rgba(30,42,38,.25)}
+#timer{-webkit-text-stroke:4px #1e2a26;paint-order:stroke fill;text-shadow:3px 4px 0 #1e2a26}
+.hteam b{-webkit-text-stroke:3px #1e2a26;paint-order:stroke fill;text-shadow:2px 3px 0 #1e2a26}
+/* 판 시작·끝: 잉크 원이 닫혔다 열린다 */
+#wipe{position:fixed;inset:0;z-index:50;pointer-events:none;background:#1e2a26;clip-path:circle(0% at 50% 50%);visibility:hidden}
+#wipe.on{visibility:visible;animation:wipe .7s cubic-bezier(.7,0,.3,1) forwards}
+@keyframes wipe{0%{clip-path:circle(75% at 50% 50%)}55%{clip-path:circle(0% at 50% 50%)}100%{clip-path:circle(0% at 50% 50%)}}
+@media (prefers-reduced-motion:reduce){#wipe.on{animation:none;visibility:hidden}}
