@@ -43,6 +43,7 @@
   <div id="wipe"></div>
   <div id="touch" hidden>
     <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
+    <div id="lookZone"></div>
   </div>
 
   <div id="chatBox" hidden>
@@ -76,6 +77,11 @@
         </div>
         <button class="btn ghost" id="soloBtn" type="button">봇이랑 연습하기</button>
       </div>
+      <div class="opts">
+        <div class="opt pconly"><span>PC 조작</span><button class="szbtn" type="button" data-ctrl="lol">롤처럼</button><button class="szbtn" type="button" data-ctrl="wasd">WASD</button></div>
+        <div class="opt"><span>시점</span><button class="szbtn" type="button" data-view="top">위에서</button><button class="szbtn" type="button" data-view="fps">3D 1인칭</button></div>
+        <div class="opt"><span>그래픽</span><button class="szbtn" type="button" data-gfx="casual">캐주얼</button><button class="szbtn" type="button" data-gfx="ultra">초고퀄</button></div>
+      </div>
       <details class="how">
         <summary>어떻게 해요? <small id="ver" class="ver"></small></summary>
         <ul>
@@ -86,7 +92,11 @@
           <li>술래는 <b>냄새</b>로 숨은 고양이를 찾고 <b>덮치기</b>를 써요. 도망팀은 <b>털뭉치</b>를 깔고 <b>캣닢</b>을 먹고 빨라져요.</li>
           <li>상자를 주우면 보호색, 블럭, 생선 중 하나가 나와요. 생선을 먹으면 스킬을 바로 다시 쓸 수 있어요.</li>
           <li>물총 팀전, 로봇청소기 막기(협동), 냥버워치(클래스 골라 점령전)도 있어요.</li>
-          <li>PC: WASD로 움직이고 Space로 대시해요. Q와 E는 스킬, R은 아이템, T는 멘트, Enter는 채팅, M은 소리예요. 총싸움에선 마우스로 조준하고 클릭해서 쏴요.</li>
+          <li>PC (롤처럼): 우클릭한 곳으로 걸어가요. Q·W는 스킬, E는 아이템, D나 Space는 커서 쪽으로 대시, S는 멈춤. 스킬은 커서 방향으로 나가요. 총싸움에선 왼쪽 클릭으로 쏴요.</li>
+          <li>PC (WASD): WASD로 움직이고 Space로 대시. Q·E는 스킬, R은 아이템이에요.</li>
+          <li>T는 멘트, Enter는 채팅, M은 소리예요.</li>
+          <li>시점을 ‘3D 1인칭’으로 바꾸면 고양이 눈높이에서 놀아요. PC는 화면을 클릭하고 마우스로 둘러보고, 폰은 오른쪽 화면을 밀어서 둘러봐요.</li>
+          <li>그래픽 ‘초고퀄’은 그림자, 구름 그림자, 발자국이 더해져요. ‘캐주얼’은 가볍고 깔끔해요.</li>
           <li>폰: 왼손 엄지로 조이스틱을 밀고, 오른손으로 버튼을 눌러요.</li>
         </ul>
       </details>

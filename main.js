@@ -12,7 +12,7 @@
   const TEAM_NAME = C.TEAM_NAME;
   const PREFIX = 'nyangtag-v1-';
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const VERSION = 'v5.0.0';
+  const VERSION = 'v5.1.0';
   const MAXP = 16; // 최대 8:8
   /* ---------------- 디자인 시스템 (DESIGN.md) ---------------- */
   // 색은 이것만 쓴다. 캔버스·CSS가 같은 값을 본다
@@ -345,6 +345,7 @@
     g.fillStyle = '#5c8a4c'; g.fillRect(0, 0, W, H);
     for (const rm of C.ROOMS) drawFloor(g, rm, rnd);
     drawDecor(g, rnd);
+    if (app.gfx === 'ultra') bakeUltraFloor(g);
     // 숨는 곳 바닥 그늘
     for (const h of C.HIDES) {
       if (h.k === 'bush' || h.k === 'snowbush' || h.k === 'car' || h.k === 'tent' || h.k === 'bamboo' || h.k === 'hay' || h.k === 'corn' || h.k === 'pumpkins') continue;
@@ -368,6 +369,22 @@
     return cv;
   }
 
+  // 초고퀄: 바닥에 햇빛 얼룩과 물건 밑 은은한 그림자(앰비언트 오클루전)를 굽는다
+  function bakeUltraFloor(g) {
+    const r2 = rand(777);
+    if (!C.NIGHT) {
+      g.save(); g.globalCompositeOperation = 'soft-light';
+      for (let i = 0; i < Math.round(W * H / 900000); i++) { const x = r2() * W, y = r2() * H, r = 260 + r2() * 420; glow(g, r2() < .55 ? '255,236,190' : '40,50,90', x, y, r, .75); }
+      g.restore();
+    }
+    // 그림자 모양만 남기려고 물체는 화면 밖에 그리고 그림자만 안쪽으로 옮긴다
+    const OFF = 20000;
+    g.save(); g.shadowColor = 'rgba(20,16,30,.7)'; g.shadowBlur = 38; g.shadowOffsetX = OFF; g.shadowOffsetY = 10; g.fillStyle = '#000';
+    for (const o of C.SOLIDS) { if (o.k === 'stream' || o.k === 'sea' || o.k === 'pond' || o.k === 'road') continue; rr(g, o.x - OFF - 4, o.y + 4, o.w + 8, o.h + 4, 14); g.fill(); }
+    g.shadowColor = 'rgba(20,16,30,.35)'; g.shadowBlur = 26;
+    for (const h of C.HIDES) { rr(g, h.x - OFF, h.y + 6, h.w, h.h, 20); g.fill(); }
+    g.restore();
+  }
   function drawFloor(g, rm, rnd) {
     const { x, y, w, h } = rm;
     g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
@@ -1420,8 +1437,11 @@
     me: { name: '', av: 'd0' },
     muted: false,
   };
-  try { const s = JSON.parse(localStorage.getItem('nyangtag-me') || '{}'); app.me.name = cleanName(s.name || ''); app.me.av = validAv(s.av) || 'd0'; if (!s.name) app.me.name = ''; app.muted = !!s.muted; } catch (e) { }
-  function saveMe() { try { localStorage.setItem('nyangtag-me', JSON.stringify({ ...app.me, muted: app.muted })); } catch (e) { } }
+  try { const s = JSON.parse(localStorage.getItem('nyangtag-me') || '{}'); app.me.name = cleanName(s.name || ''); app.me.av = validAv(s.av) || 'd0'; if (!s.name) app.me.name = ''; app.muted = !!s.muted; app.ctrl = s.ctrl === 'wasd' ? 'wasd' : 'lol'; app.view = s.view === 'fps' ? 'fps' : 'top'; app.gfx = s.gfx === 'casual' || s.gfx === 'ultra' ? s.gfx : null; } catch (e) { }
+  // PC 조작: 'lol'(우클릭 이동, QW 스킬, E 아이템, D 대시) 또는 'wasd'. 그래픽: 'casual' 또는 'ultra' (폰은 캐주얼, PC는 초고퀄이 기본)
+  app.ctrl = app.ctrl || 'lol';
+  app.gfx = app.gfx || (matchMedia('(pointer: coarse)').matches ? 'casual' : 'ultra');
+  function saveMe() { try { localStorage.setItem('nyangtag-me', JSON.stringify({ ...app.me, muted: app.muted, ctrl: app.ctrl, gfx: app.gfx, view: app.view })); } catch (e) { } }
   const myName = () => app.me.name || '냥이';
 
   /* ---------------- 랭크 (롤 티어, 이 기기에 저장) ---------------- */
@@ -1564,7 +1584,7 @@
   }
 
   /* ---------------- 효과 (파티클·흔들림·번쩍) ---------------- */
-  const fx = { bubbles: Array(MAXP).fill(null), parts: [], rings: [], marks: [], screen: [], shake: 0, flash: null, slow: 0, tension: 0, beat: 0, prevHide: Array(MAXP).fill(-1), dustT: Array(MAXP).fill(0), rustle: new Map() };
+  const fx = { bubbles: Array(MAXP).fill(null), parts: [], rings: [], marks: [], screen: [], shake: 0, flash: null, slow: 0, tension: 0, beat: 0, prevHide: Array(MAXP).fill(-1), dustT: Array(MAXP).fill(0), rustle: new Map(), prints: [] };
   function burst(x, y, n, o) {
     for (let i = 0; i < n; i++) {
       const a = (o.a0 ?? 0) + Math.random() * (o.spread ?? Math.PI * 2), sp = (o.sp ?? 200) * (0.4 + Math.random() * 0.8);
@@ -1709,9 +1729,12 @@
     if (e.target.tagName === 'INPUT') return;
     if (app.inGame && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
     if (app.inGame && !e.repeat) {
+      const lol = app.ctrl === 'lol' && !touchUI && !fpsOn();
       if (e.code === 'KeyQ' || e.code === 'KeyJ' || e.code === 'Digit1') skillQ[0] = true;
-      if (e.code === 'KeyE' || e.code === 'KeyK' || e.code === 'Digit2') skillQ[1] = true;
-      if (e.code === 'KeyR' || e.code === 'KeyL' || e.code === 'Digit3') itemQ = true;
+      if (e.code === (lol ? 'KeyW' : 'KeyE') || e.code === 'KeyK' || e.code === 'Digit2') skillQ[1] = true;
+      if (e.code === (lol ? 'KeyE' : 'KeyR') || (lol && e.code === 'KeyR') || e.code === 'KeyL' || e.code === 'Digit3') itemQ = true;
+      if (lol && e.code === 'KeyS') moveTo.on = false;
+      if (lol && (e.code === 'KeyD' || e.code === 'KeyF' || e.code === 'Space')) lolDash();
       if (e.code === 'KeyT') sayQ = true;
       if (e.code === 'KeyM') toggleMute();
     }
@@ -1737,6 +1760,15 @@
   });
   const endStick = e => { if (e.pointerId !== stick.id) return; stick.id = null; stick.x = stick.y = 0; stickKnob.style.transform = ''; stickZone.classList.remove('active'); stickBase.style.left = ''; stickBase.style.top = ''; };
   stickZone.addEventListener('pointerup', endStick); stickZone.addEventListener('pointercancel', endStick);
+  // 1인칭 폰: 오른쪽 화면을 밀어서 둘러보기
+  const lookZone = $('lookZone'), look = { id: null, x: 0, y: 0 };
+  lookZone.addEventListener('pointerdown', e => { look.id = e.pointerId; look.x = e.clientX; look.y = e.clientY; try { lookZone.setPointerCapture(e.pointerId); } catch (er) { } });
+  lookZone.addEventListener('pointermove', e => {
+    if (e.pointerId !== look.id) return;
+    v3.yaw += (e.clientX - look.x) * .006; v3.pitch = clamp(v3.pitch - (e.clientY - look.y) * .004, -.7, .45); look.x = e.clientX; look.y = e.clientY;
+  });
+  const endLook = e => { if (e.pointerId === look.id) look.id = null; };
+  lookZone.addEventListener('pointerup', endLook); lookZone.addEventListener('pointercancel', endLook);
   const skD = $('skD'), skB = [$('sk0'), $('sk1')];
   skD.addEventListener('pointerdown', e => { e.preventDefault(); dashTouch = true; try { skD.setPointerCapture(e.pointerId); } catch (er) { } });
   skD.addEventListener('pointerup', () => { dashTouch = false; }); skD.addEventListener('pointercancel', () => { dashTouch = false; });
@@ -1746,14 +1778,47 @@
   $('sayBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (app.mode === 'practice' && !touchUI) sayQ = true; else chatOpen(); });
   const mouse = { x: 0, y: 0, down: false, on: false };
   addEventListener('pointermove', e => { if (e.pointerType === 'mouse') { mouse.x = e.clientX; mouse.y = e.clientY; mouse.on = true; } });
+  // 1인칭: 화면을 클릭하면 마우스를 잡아서 움직임만큼 고개를 돌린다
+  addEventListener('mousemove', e => {
+    if (!fpsOn() || document.pointerLockElement !== v3.canvas) return;
+    v3.yaw += e.movementX * .0026; v3.pitch = clamp(v3.pitch - e.movementY * .002, -.7, .45);
+  });
   const uiHit = t => t.closest('button,input,form,.screen,#chatBox,#skills');
   $('app').addEventListener('pointerdown', e => {
     if (e.pointerType !== 'mouse' || !app.inGame || uiHit(e.target)) return;
+    if (fpsOn() && document.pointerLockElement !== v3.canvas) { try { v3.canvas.requestPointerLock(); } catch (er) { } return; }
     if (e.button === 0) mouse.down = true;
+    else if (e.button === 2 && app.ctrl === 'lol' && !fpsOn()) { mouse.right = true; setMoveTo(true); }
     else if (e.button === 2 && isCombat(app.g)) skillQ[0] = true;
   });
-  addEventListener('pointerup', e => { if (e.pointerType === 'mouse' && e.button === 0) mouse.down = false; });
-  addEventListener('blur', () => { mouse.down = false; });
+  addEventListener('pointerup', e => { if (e.pointerType === 'mouse' && e.button === 0) mouse.down = false; if (e.pointerType === 'mouse' && e.button === 2) mouse.right = false; });
+  addEventListener('blur', () => { mouse.down = false; mouse.right = false; });
+  /* 롤식 이동: 우클릭한 곳까지 길을 찾아 걸어간다 (누르고 있으면 커서를 따라감) */
+  const moveTo = { on: false, x: 0, y: 0, path: null, pi: 0, pathT: 0, fx: [] };
+  const toWorld = (sx, sy) => [app.cam.x + (sx - vw / 2) / zoom, app.cam.y + (sy - vh / 2) / zoom];
+  function setMoveTo(click) {
+    const [wx, wy] = toWorld(mouse.x, mouse.y);
+    moveTo.on = true; moveTo.x = clamp(wx, R, W - R); moveTo.y = clamp(wy, R, H - R); moveTo.path = null;
+    if (click) { moveTo.fx.push({ x: moveTo.x, y: moveTo.y, t: 0 }); if (moveTo.fx.length > 4) moveTo.fx.shift(); }
+  }
+  function lolDash() {
+    const me = app.g && app.g.cats[app.mySlot]; if (!me || !mouse.on) return;
+    // 서 있으면 커서 쪽으로 짧게 튀어 나간다 (점멸 느낌)
+    if (!moveTo.on) { const [wx, wy] = toWorld(mouse.x, mouse.y), d = hyp(wx - me.x, wy - me.y) || 1, k = Math.min(1, 170 / d); moveTo.on = true; moveTo.x = me.x + (wx - me.x) * k; moveTo.y = me.y + (wy - me.y) * k; moveTo.path = null; }
+    lolDashQ = true;
+  }
+  let lolDashQ = false;
+  function followMove(me) {
+    if (!moveTo.on || !me || me.dead) { moveTo.on = false; return [0, 0]; }
+    const d0 = hyp(moveTo.x - me.x, moveTo.y - me.y); if (d0 < 14) { moveTo.on = false; return [0, 0]; }
+    if (C.lineClear(me.x, me.y, moveTo.x, moveTo.y, me.r * .8)) { moveTo.path = null; return [(moveTo.x - me.x) / d0, (moveTo.y - me.y) / d0]; }
+    const now = performance.now();
+    if (!moveTo.path || now > moveTo.pathT) { moveTo.path = C.astar(me.x, me.y, moveTo.x, moveTo.y); moveTo.pi = 0; moveTo.pathT = now + 500; }
+    if (!moveTo.path || !moveTo.path.length) { moveTo.on = false; return [0, 0]; }
+    let wp = moveTo.path[moveTo.pi];
+    while (wp && hyp(wp.x - me.x, wp.y - me.y) < 22 && moveTo.pi < moveTo.path.length - 1) { moveTo.pi++; wp = moveTo.path[moveTo.pi]; }
+    const d = hyp(wp.x - me.x, wp.y - me.y) || 1; return [(wp.x - me.x) / d, (wp.y - me.y) / d];
+  }
   $('app').addEventListener('contextmenu', e => { if (app.inGame) e.preventDefault(); });
   let fireTouch = false;
   const fireBtn = $('fireBtn'), aimStick = { id: null, ox: 0, oy: 0, a: null };
@@ -1792,15 +1857,45 @@
     if (mx || my) return Math.atan2(my, mx);
     return me.gunA ?? 0;
   }
+  // 1인칭 조준: 바라보는 방향, 폰은 정면 8° 안의 적에게 살짝 붙여 준다
+  function fpsAim(me, g) {
+    if (!touchUI) return v3.yaw;
+    const cand = g.mode === 'zombie' ? g.mobs : g.cats.filter(c => c.team !== me.team && !c.dead && C.visibleTo(g, me.team, c));
+    let best = null, bs = .14;
+    for (const t of cand) { if (hyp(t.x - me.x, t.y - me.y) > 900) continue; const ta = Math.atan2(t.y - me.y, t.x - me.x), d = Math.abs(Math.atan2(Math.sin(ta - v3.yaw), Math.cos(ta - v3.yaw))); if (d < bs) { bs = d; best = ta; } }
+    return best ?? v3.yaw;
+  }
   function readInput() {
-    let x = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
-    let y = (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0) - (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0);
+    const fps = fpsOn(), lol = app.ctrl === 'lol' && !touchUI && !fps, g = app.g, me = g && g.cats[app.mySlot];
+    if (fps) {
+      // 1인칭: 앞뒤·옆 걸음을 바라보는 방향 기준으로 바꾼다
+      let f = (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) - (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0);
+      let st = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
+      if (stick.x || stick.y) { f = -stick.y; st = stick.x; }
+      const cy = Math.cos(v3.yaw), sy = Math.sin(v3.yaw);
+      let x = cy * f - sy * st, y = sy * f + cy * st; const l = hyp(x, y); if (l > 1) { x /= l; y /= l; }
+      const dash = keys.has('Space') || keys.has('ShiftLeft') || keys.has('ShiftRight') || dashTouch;
+      const s0 = skillQ[0], s1 = skillQ[1], it = itemQ, say = sayQ; skillQ[0] = skillQ[1] = itemQ = sayQ = false;
+      const inp = { x, y, dash, s0, s1, it, say, aa: v3.yaw };
+      if (isCombat(g) && me) { inp.ga = fpsAim(me, g); inp.fire = mouse.down || fireTouch || keys.has('KeyF') || keys.has('KeyJ'); }
+      return inp;
+    }
+    let x = (keys.has('ArrowRight') || (!lol && keys.has('KeyD')) ? 1 : 0) - (keys.has('ArrowLeft') || (!lol && keys.has('KeyA')) ? 1 : 0);
+    let y = (keys.has('ArrowDown') || (!lol && keys.has('KeyS')) ? 1 : 0) - (keys.has('ArrowUp') || (!lol && keys.has('KeyW')) ? 1 : 0);
     if (stick.x || stick.y) { x = stick.x; y = stick.y; }
+    if (lol) {
+      if (x || y) moveTo.on = false;
+      else { if (mouse.right && mouse.on) setMoveTo(false); [x, y] = followMove(me); }
+    }
     const l = hyp(x, y); if (l > 1) { x /= l; y /= l; }
-    const dash = keys.has('Space') || keys.has('ShiftLeft') || keys.has('ShiftRight') || keys.has('Enter') || dashTouch;
+    const dash = (lol ? lolDashQ : keys.has('Space') || keys.has('ShiftLeft') || keys.has('ShiftRight')) || keys.has('Enter') || dashTouch; lolDashQ = false;
     const s0 = skillQ[0], s1 = skillQ[1], it = itemQ, say = sayQ; skillQ[0] = skillQ[1] = itemQ = sayQ = false;
     const inp = { x, y, dash, s0, s1, it, say };
-    const g = app.g, me = g && g.cats[app.mySlot];
+    // 롤식: 스킬·아이템은 커서 방향으로. 쓰는 순간 걷기를 멈춘다 (덮치기 방향이 길 방향으로 바뀌지 않게)
+    if (lol && me && mouse.on) {
+      const [px, py] = toScreen(me.x, me.y); inp.aa = Math.atan2(mouse.y - py, mouse.x - px);
+      if ((s0 || s1 || it) && !(me.frozen || me.dead)) { moveTo.on = false; inp.x = inp.y = 0; }
+    }
     if (isCombat(g) && me) { inp.ga = aimFor(me, g, x, y); inp.fire = mouse.down || fireTouch || keys.has('KeyF') || keys.has('KeyJ'); }
     return inp;
   }
@@ -1810,6 +1905,24 @@
     $('muteBtn').innerHTML = ico(app.muted ? 'mute' : 'sound');
     toast(app.muted ? '소리 껐어요' : '소리 켰어요', 1200);
   }
+  // 조작 방식에 맞게 버튼의 단축키 글자 바꾸기
+  function applyCtrlLabels() {
+    const lol = app.ctrl === 'lol';
+    const set = (id, t) => { const k = $(id).querySelector('.key'); if (k) k.textContent = t; };
+    set('sk0', 'Q'); set('sk1', lol ? 'W' : 'E'); set('skI', lol ? 'E' : 'R'); set('skD', lol ? 'D' : 'Space');
+    for (const b of document.querySelectorAll('[data-ctrl]')) b.classList.toggle('on', b.dataset.ctrl === app.ctrl);
+    for (const b of document.querySelectorAll('[data-gfx]')) b.classList.toggle('on', b.dataset.gfx === app.gfx);
+    for (const b of document.querySelectorAll('[data-view]')) b.classList.toggle('on', b.dataset.view === app.view);
+    document.body.classList.toggle('ultra', app.gfx === 'ultra');
+  }
+  for (const b of document.querySelectorAll('[data-ctrl]')) b.onclick = () => { app.ctrl = b.dataset.ctrl; moveTo.on = false; saveMe(); applyCtrlLabels(); SFX.ui(); toast(app.ctrl === 'lol' ? '롤처럼: 우클릭으로 이동, Q·W 스킬, E 아이템, D 대시' : 'WASD로 이동, Q·E 스킬, R 아이템, Space 대시', 3200); };
+  for (const b of document.querySelectorAll('[data-gfx]')) b.onclick = () => { app.gfx = b.dataset.gfx; saveMe(); applyCtrlLabels(); mapCache = null; canopyCache.clear(); nightStatic.id = ''; SFX.ui(); };
+  for (const b of document.querySelectorAll('[data-view]')) b.onclick = () => {
+    app.view = b.dataset.view; saveMe(); applyCtrlLabels(); SFX.ui();
+    if (app.view === 'fps') { load3D(); toast(touchUI ? '1인칭: 왼손 조이스틱으로 걷고, 오른쪽 화면을 밀어서 둘러봐요' : '1인칭: 화면을 클릭하면 마우스로 둘러봐요. WASD 이동, Q·E 스킬, R 아이템', 3800); }
+  };
+  if (app.view === 'fps') load3D();
+  applyCtrlLabels();
   // 정적 버튼들의 아이콘 채우기
   for (const el of document.querySelectorAll('[data-i]')) el.insertAdjacentHTML('afterbegin', ico(el.dataset.i));
   $('muteBtn').innerHTML = ico(app.muted ? 'mute' : 'sound');
@@ -2105,7 +2218,8 @@
   function wipe() { const w = $('wipe'); w.classList.remove('on'); void w.offsetWidth; w.classList.add('on'); }
   function enterGame() {
     app.inGame = true; app.popups = []; wipe();
-    fx.parts = []; fx.rings = []; fx.marks = []; fx.screen = []; fx.tension = 0; fx.prevHide = Array(MAXP).fill(-1); fx.bubbles = Array(MAXP).fill(null);
+    if (app.view === 'fps') { load3D(); const me = app.g && app.g.cats[app.mySlot]; v3.yaw = me ? Math.atan2(me.aimY || 0, me.aimX || 1) : 0; v3.pitch = -.05; }
+    fx.parts = []; fx.rings = []; fx.prints = []; fx.marks = []; fx.screen = []; fx.tension = 0; fx.prevHide = Array(MAXP).fill(-1); fx.bubbles = Array(MAXP).fill(null);
     match.stats = { freezes: 0, rescues: 0, rounds: 0, wonRounds: 0 };
     document.body.classList.toggle('combat', isCombat(app.g)); $('feed').replaceChildren();
     show(null); $('hud').hidden = false; $('touch').hidden = !touchUI; $('skills').hidden = false;
@@ -2120,7 +2234,7 @@
   }
   $('startBtn').onclick = () => { SFX.go(); startHostGame(); };
   function leaveGameUI() {
-    app.inGame = false; document.body.classList.remove('combat'); $('hud').hidden = true; $('touch').hidden = true; $('skills').hidden = true; $('banner').hidden = true;
+    app.inGame = false; document.body.classList.remove('combat'); if (document.pointerLockElement) document.exitPointerLock(); $('hud').hidden = true; $('touch').hidden = true; $('skills').hidden = true; $('banner').hidden = true;
     fx.tension = 0;
     syncSprites();
   }
@@ -2680,6 +2794,7 @@
       const inp = readInput();
       if (g.phase === 'play' || g.phase === 'count') {
         if (C.moveCat(me, g, inp.x, inp.y, inp.dash, dt)) handleEvent({ k: 'dash', id: me.id }, g);
+        if (typeof inp.aa === 'number' && (inp.s0 || inp.s1 || inp.it)) { me.aimX = Math.cos(inp.aa); me.aimY = Math.sin(inp.aa); }
         for (const k of [0, 1]) if (inp['s' + k]) {
           if (C.useSkill(g, me, k)) {
             for (const e of g.events.splice(0)) handleEvent(Object.assign(e, { local: true }), g);
@@ -3099,6 +3214,24 @@
         else burst(c.x - c.vx * .03, c.y + c.r * .9, 1, { col: ['rgba(230,215,190,.7)'], sp: 30, life: .4, size: 7, kind: 'puff' });
       }
     }
+    // 초고퀄: 걸어간 자리에 발자국이 남았다가 옅어진다
+    if (app.gfx === 'ultra') {
+      for (const c of g.cats) {
+        if (!c.moving || c.hidden || c.dead || !vis(c)) continue;
+        const k = 'pp' + c.id; fx[k] = (fx[k] || 0) - rdt; if (fx[k] > 0) continue; fx[k] = .2;
+        const a = Math.atan2(c.vy, c.vx), side = (fx.pps = -(fx.pps || 1));
+        fx.prints.push({ x: c.x - Math.sin(a) * 7 * side, y: c.y + c.r * .7 + Math.cos(a) * 7 * side, a, t: 0 });
+      }
+      if (fx.prints.length > 160) fx.prints.splice(0, fx.prints.length - 160);
+      for (const pr of fx.prints) {
+        pr.t += rdt; if (pr.t > 5 || pr.x < vL || pr.x > vR || pr.y < vT || pr.y > vB) continue;
+        wg.save(); wg.translate(pr.x, pr.y); wg.rotate(pr.a + Math.PI / 2); wg.globalAlpha = .16 * (1 - pr.t / 5); wg.fillStyle = TK.ink;
+        wg.beginPath(); wg.ellipse(0, 2, 4, 3.4, 0, 0, 7); wg.fill();
+        for (const [dx, dy] of [[-3.6, -3], [-1.2, -4.8], [1.2, -4.8], [3.6, -3]]) { wg.beginPath(); wg.arc(dx, dy, 1.3, 0, 7); wg.fill(); }
+        wg.restore();
+      }
+      fx.prints = fx.prints.filter(pr => pr.t <= 5);
+    }
     // 털뭉치 트랩 (우리 팀 것은 늘 보이고, 상대 것은 가까이 가야 보인다)
     for (const t of g.traps) {
       const own = myTeam < 0 || t.team === myTeam;
@@ -3170,6 +3303,7 @@
       const isCh = c.team === g.chaserTeam && g.phase !== 'lobby';
       const sniffedNow = myTeam >= 0 && c.team !== myTeam && c.hidden && C.sniffed(g, myTeam, c);
       wg.save(); wg.translate(c.x, c.y + c.r * .95);
+      if (app.gfx === 'ultra' && !C.NIGHT) { wg.save(); wg.translate(c.r * .55, -c.r * .05); wg.rotate(-.35); wg.scale(1.7, .55); glow(wg, '20,16,30', 0, 0, c.r * 1.1, .42, .3); wg.restore(); }
       wg.fillStyle = 'rgba(20,30,30,.25)'; wg.beginPath(); wg.ellipse(0, 0, c.r * 1.05, c.r * .36, 0, 0, 7); wg.fill();
       wg.strokeStyle = isCh ? TK.pink : TEAM_COL[c.team]; wg.lineWidth = 3.5;
       if (isCh) { wg.setLineDash([8, 7]); wg.lineDashOffset = -c.t * 30; }
@@ -3243,6 +3377,14 @@
       if (rus && Math.random() < .15 && h.k === 'bush') burst(h.x + Math.random() * h.w, h.y + Math.random() * h.h * .5, 1, { col: ['#5cb04c', '#7ccf63'], sp: 60, life: .7, size: 7, kind: 'leaf', grav: 120 });
     });
     drawClouds(xg, now, vL, vR, vT, vB);
+    if (app.gfx === 'ultra' && !C.NIGHT) {
+      // 초고퀄: 맵 위로 천천히 지나가는 구름 그림자
+      for (let k = 0; k < 7; k++) {
+        const r = 520 + (k % 3) * 160, cx = ((k * 1733 + now * 26) % (W + r * 2)) - r, cy = ((k * 911) % (H + 400)) - 200 + Math.sin(now * .05 + k) * 80;
+        if (cx + r < vL || cx - r > vR || cy + r < vT || cy - r > vB) continue;
+        xg.save(); xg.translate(cx, cy); xg.scale(1, .62); glow(xg, '30,34,60', 0, 0, r, .16, .35); xg.restore();
+      }
+    }
     drawAmbient(xg, now, false);
     if (C.NIGHT) drawLanterns(xg, now, vL, vR, vT, vB);
     if (C.NIGHT) {
@@ -3344,8 +3486,25 @@
       xg.font = '34px Jua, sans-serif'; xg.textAlign = 'center'; xg.textBaseline = 'middle';
       xg.lineWidth = 8; xg.strokeStyle = '#fff'; xg.strokeText(p.text, 0, 0); xg.fillStyle = p.color; xg.fillText(p.text, 0, 0); xg.restore();
     }
+    // 롤식 이동 표시: 찍은 자리에 초록 고리가 오므라들고, 가는 동안 목적지에 작은 점
+    for (const m of moveTo.fx) {
+      m.t += rdt; if (m.t > .45) continue;
+      const k = m.t / .45; xg.globalAlpha = 1 - k; xg.strokeStyle = TK.green; xg.lineWidth = 3;
+      xg.beginPath(); xg.ellipse(m.x, m.y, 30 * (1 - k * .6), 14 * (1 - k * .6), 0, 0, 7); xg.stroke();
+      xg.strokeStyle = TK.ink; xg.lineWidth = 1.5; xg.beginPath(); xg.ellipse(m.x, m.y, 30 * (1 - k * .6) + 2.5, 14 * (1 - k * .6) + 2.5, 0, 0, 7); xg.stroke();
+    }
+    xg.globalAlpha = 1;
+    if (app.inGame && moveTo.on && me && !me.dead) { xg.fillStyle = TK.green; xg.strokeStyle = TK.ink; xg.lineWidth = 2; xg.beginPath(); xg.ellipse(moveTo.x, moveTo.y, 7, 3.5, 0, 0, 7); xg.fill(); xg.stroke(); }
+    drawScreen(g, me, myTeam, now, rdt, false);
+  }
+  // 화면 위에 겹치는 것들 (비네트, 카운트다운, 조준점, 미니맵, 번쩍임) — 위에서 보기와 1인칭이 같이 쓴다
+  function drawScreen(g, me, myTeam, now, rdt, fps) {
     // 화면 좌표
     xg.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (app.gfx === 'ultra') {
+      // 초고퀄 색 보정: 가장자리를 살짝 눌러 시선을 가운데로 (밤 맵은 차갑게, 낮 맵은 따뜻하게)
+      vignette(xg, C.NIGHT ? '8,6,30' : '60,30,10', C.NIGHT ? .35 : .22, .5);
+    }
     if (app.inGame) {
       // 긴장감 비네트 (심장 박동에 맞춰 뛴다)
       fx.beat = Math.max(0, fx.beat - rdt * 3);
@@ -3361,7 +3520,7 @@
         xg.strokeStyle = `rgba(255,93,143,${.5 + Math.sin(now * 12) * .3})`; xg.lineWidth = 10; xg.strokeRect(5, 5, vw - 10, vh - 10);
       }
       // 얼은 친구 방향 화살표
-      for (const c of g.cats) {
+      if (!fps) for (const c of g.cats) {
         if (!me || c === me || c.team !== myTeam || !c.frozen || (c.thaws | 0) >= C.TUNE.maxThaw) continue;
         const [px, py] = toScreen(c.x, c.y);
         if (px > 30 && px < vw - 30 && py > 90 && py < vh - 30) continue;
@@ -3380,7 +3539,8 @@
         xg.lineWidth = 14; xg.strokeStyle = '#fff'; xg.strokeText(n > 0 ? n : '', 0, 0); xg.fillStyle = n === 1 ? '#e2442f' : '#1e2a26'; xg.fillText(n > 0 ? n : '', 0, 0);
         xg.restore();
       }
-      if (isCombat(g) && !touchUI && mouse.on && me && !me.dead) {
+      if (fps && me && !me.dead) drawFpsHands(g, me, now);
+      if (!fps && isCombat(g) && !touchUI && mouse.on && me && !me.dead) {
         xg.strokeStyle = '#fff'; xg.lineWidth = 2; xg.beginPath(); xg.arc(mouse.x, mouse.y, 11, 0, 7); xg.stroke();
         xg.strokeStyle = WPN_COL[me.wpn] || '#e2442f'; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { xg.beginPath(); xg.moveTo(mouse.x + dx * 6, mouse.y + dy * 6); xg.lineTo(mouse.x + dx * 17, mouse.y + dy * 17); xg.stroke(); }
         if (me.fireCd > 0) { xg.strokeStyle = 'rgba(255,255,255,.6)'; xg.beginPath(); xg.arc(mouse.x, mouse.y, 15, -Math.PI / 2, -Math.PI / 2 + (1 - me.fireCd / (C.WEAPONS[me.wpn] || C.WEAPONS.pistol).rate) * Math.PI * 2); xg.stroke(); }
@@ -3464,7 +3624,10 @@
     if (g.cp) { xg.strokeStyle = g.cp.owner >= 0 ? TEAM_COL[g.cp.owner] : '#fff'; xg.lineWidth = 2; xg.beginPath(); xg.arc(g.cp.x * s, g.cp.y * s, Math.max(4, g.cp.r * s), 0, 7); xg.stroke(); }
     for (const sc of g.scents) if (myTeam < 0 || sc.team === myTeam) { xg.fillStyle = 'rgba(255,93,143,.6)'; xg.beginPath(); xg.arc(sc.x * s, sc.y * s, 6, 0, 7); xg.fill(); }
     xg.strokeStyle = 'rgba(255,255,255,.7)'; xg.lineWidth = 1;
-    xg.strokeRect((app.cam.x - vw / zoom / 2) * s, (app.cam.y - vh / zoom / 2) * s, vw / zoom * s, vh / zoom * s);
+    if (fpsOn() && me) {
+      // 1인칭: 내가 보는 쪽을 부채꼴로
+      xg.fillStyle = 'rgba(255,255,255,.35)'; xg.beginPath(); xg.moveTo(me.x * s, me.y * s); xg.arc(me.x * s, me.y * s, 26, v3.yaw - .62, v3.yaw + .62); xg.closePath(); xg.fill();
+    } else xg.strokeRect((app.cam.x - vw / zoom / 2) * s, (app.cam.y - vh / zoom / 2) * s, vw / zoom * s, vh / zoom * s);
     xg.restore();
   }
 
@@ -3546,6 +3709,252 @@
     $('role').hidden = !role;
   }
 
+  /* ---------------- 3D 1인칭 시점 ----------------
+     게임 규칙(core.js)은 그대로, 화면만 three.js로 그린다. 2D로 구운 맵 그림을 바닥에 깔고
+     벽·가구는 그 그림을 위로 세운 기둥, 고양이는 카메라를 보는 판(스프라이트). */
+  const v3 = { ready: false, loading: false, key: '', yaw: 0, pitch: -0.05, cats: [], objs: [], lights: [], bob: 0 };
+  const fpsOn = () => app.view === 'fps' && app.inGame && v3.ready;
+  // 물건 높이 (게임 좌표 px). 고양이 눈높이가 46이라 벽(150)은 꽤 높아 보인다
+  const H3 = { wall: 150, hull: 150, mansion: 210, hanok: 170, window: 150, tower: 140, fridge: 120, wardrobe: 130, shelf: 110, tank: 120, reactor: 150, board: 90, hoop: 110, goal: 80, stall: 95, pocha: 95, gym: 90, slide: 70, tv: 70, snowman: 70, piano: 60, holo: 60, crate: 60, console: 50, counter: 50, drawer: 50, grave: 50, ifence: 50, dam: 50, fence: 45, desk: 45, lab: 45, sofa: 45, table: 40, sdesk: 40, headboard: 40, drum: 40, vault: 40, cauldron: 40, jack: 40, rock: 40, pumpkin: 35, pot: 30, bench: 30, seesaw: 25, fountain: 25 };
+  const TREE3 = new Set(['tree', 'pine', 'palm', 'cherry', 'deadtree', 'umbrella']);
+  const ROUND3 = new Set(['pot', 'rock', 'pumpkin', 'jack', 'cauldron', 'fountain', 'reactor', 'tank', 'drum', 'snowman', 'bush', 'snowbush', 'jar', 'tube', 'pumpkins']);
+  const HH3 = { bush: 70, snowbush: 70, tent: 110, car: 70, bamboo: 150, hay: 60, corn: 150, curtain: 150, box: 60, blanket: 28, tablecloth: 46, bed: 46, laundry: 100, jar: 60, pyeong: 42, tube: 50, locker: 150, mat: 16, coffin: 42, pumpkins: 42, pod: 90, cargo: 70, vent: 22 };
+  function load3D() {
+    if (v3.ready || v3.loading) return; v3.loading = true;
+    const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js';
+    sc.onload = () => { v3.loading = false; try { init3D(); } catch (e) { console.warn('3d', e); fail3D(); } };
+    sc.onerror = () => { v3.loading = false; fail3D(); };
+    document.head.append(sc);
+  }
+  function fail3D() { toast('3D를 못 켰어요. 위에서 보기로 할게요.', 3000); app.view = 'top'; saveMe(); applyCtrlLabels(); }
+  function init3D() {
+    const T = window.THREE;
+    v3.canvas = document.createElement('canvas'); v3.canvas.id = 'world3d'; worldC.after(v3.canvas);
+    v3.rr = new T.WebGLRenderer({ canvas: v3.canvas, antialias: true, powerPreference: 'high-performance' });
+    v3.rr.outputEncoding = T.sRGBEncoding;
+    v3.rr.shadowMap.type = T.PCFSoftShadowMap;
+    v3.scene = new T.Scene();
+    v3.cam = new T.PerspectiveCamera(72, 1, 2, 6000);
+    v3.hemi = new T.HemisphereLight(0xfffaf0, 0x8f8574, 1); v3.scene.add(v3.hemi);
+    v3.sun = new T.DirectionalLight(0xfff1dc, .6); v3.sun.shadow.mapSize.set(2048, 2048);
+    Object.assign(v3.sun.shadow.camera, { left: -700, right: 700, top: 700, bottom: -700, near: 10, far: 3000 }); v3.sun.shadow.bias = -0.0006;
+    v3.scene.add(v3.sun, v3.sun.target);
+    for (let i = 0; i < 6; i++) { const l = new T.PointLight(0xffa860, 0, 400, 1.6); v3.scene.add(l); v3.lights.push(l); }
+    v3.torch = new T.PointLight(0xffe2b0, 0, 420, 1.4); v3.scene.add(v3.torch);
+    // 총알·로봇청소기는 하나의 인스턴스 메시로 몰아 그린다
+    v3.shots = new T.InstancedMesh(new T.SphereGeometry(6, 10, 8), new T.MeshBasicMaterial(), 320); v3.shots.count = 0; v3.scene.add(v3.shots);
+    v3.mobs = new T.InstancedMesh(new T.CylinderGeometry(1, 1, 1, 20), new T.MeshLambertMaterial(), 120); v3.mobs.count = 0; v3.scene.add(v3.mobs);
+    v3.boxGeo = new T.BoxGeometry(30, 30, 30); v3.boxMat = new T.MeshLambertMaterial({ color: TK.yellow });
+    v3.ready = true;
+  }
+  // 텍스처 좌표로 쓰려고 2D 맵 그림을 한 장으로 줄여 붙인다 (폰은 2048, PC는 4096까지)
+  function mapTexture3D(T) {
+    if (!mapCache) mapCache = buildMap();
+    const max = Math.min(touchUI ? 2048 : 4096, v3.rr.capabilities.maxTextureSize), k = Math.min(1, max / Math.max(W, H));
+    const cv = document.createElement('canvas'); cv.width = Math.round(W * k); cv.height = Math.round(H * k);
+    const g = cv.getContext('2d'); g.scale(k, k); for (const t of mapCache) g.drawImage(t.c, t.x, t.y);
+    const top = document.createElement('canvas'); top.width = cv.width; top.height = cv.height;
+    const tg = top.getContext('2d'); tg.scale(k, k);
+    for (const h of C.HIDES) { const im = canopyImage(h); tg.drawImage(im.cv, h.x - im.pad, h.y - im.pad); }
+    const mk = c => { const t = new T.CanvasTexture(c); t.encoding = T.sRGBEncoding; t.anisotropy = v3.rr.capabilities.getMaxAnisotropy(); return t; };
+    return [mk(cv), mk(top)];
+  }
+  // 바닥 모양(사각형 또는 타원)을 위로 세운 기둥. 윗면은 2D 그림 그대로, 옆면은 가장자리 안쪽 색을 늘려 쓴다
+  function prism(A, x, y, w, h, z0, z1, round, shade = 1) {
+    const cx = x + w / 2, cy = y + h / 2, pts = [];
+    if (round) for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; pts.push([cx + Math.cos(a) * w / 2, cy + Math.sin(a) * h / 2]); }
+    else pts.push([x, y], [x + w, y], [x + w, y + h], [x, y + h]);
+    const uv = (px, py) => [px / W, 1 - py / H];
+    const v = (px, py, z, u, c) => { A.p.push(px, z, py); A.u.push(...u); A.c.push(c, c, c); };
+    for (let i = 1; i < pts.length - 1; i++) for (const q of [pts[0], pts[i], pts[i + 1]]) v(q[0], q[1], z1, uv(q[0], q[1]), shade);
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      const ia = uv(cx + (a[0] - cx) * .82, cy + (a[1] - cy) * .82), ib = uv(cx + (b[0] - cx) * .82, cy + (b[1] - cy) * .82);
+      // 옆면은 방향에 따라 조금씩 어둡게 (빛이 왼쪽 위에서 온다)
+      const nx = (b[1] - a[1]), ny = -(b[0] - a[0]), l = hyp(nx, ny) || 1, side = shade * (.62 + .2 * ((-nx - ny) / l * .7 + .5));
+      v(a[0], a[1], z0, ia, side * .8); v(b[0], b[1], z0, ib, side * .8); v(b[0], b[1], z1, ib, side);
+      v(a[0], a[1], z0, ia, side * .8); v(b[0], b[1], z1, ib, side); v(a[0], a[1], z1, ia, side);
+    }
+  }
+  function meshOf(T, A, mat) {
+    const geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(A.p, 3)); geo.setAttribute('uv', new T.Float32BufferAttribute(A.u, 2)); geo.setAttribute('color', new T.Float32BufferAttribute(A.c, 3));
+    geo.computeVertexNormals();
+    const m = new T.Mesh(geo, mat); m.castShadow = m.receiveShadow = true; return m;
+  }
+  function build3D() {
+    const T = window.THREE, S = v3.scene;
+    for (const o of v3.objs) { S.remove(o); o.traverse(n => { if (n.geometry) n.geometry.dispose(); if (n.material) { if (n.material.map) n.material.map.dispose(); n.material.dispose(); } }); }
+    v3.objs = [];
+    const add = o => { S.add(o); v3.objs.push(o); return o; };
+    const [tex, topTex] = mapTexture3D(T);
+    // 바닥
+    const floor = add(new T.Mesh(new T.PlaneGeometry(W, H), new T.MeshLambertMaterial({ map: tex })));
+    floor.rotation.x = -Math.PI / 2; floor.position.set(W / 2, 0, H / 2); floor.receiveShadow = true;
+    const out = add(new T.Mesh(new T.PlaneGeometry(W * 4, H * 4), new T.MeshLambertMaterial({ color: C.NIGHT ? 0x15131f : 0x4f7a43 })));
+    out.rotation.x = -Math.PI / 2; out.position.set(W / 2, -1, H / 2);
+    // 벽·가구·나무
+    const A = { p: [], u: [], c: [] }, Bk = { p: [], u: [], c: [] }, Wl = { p: [], u: [], c: [] };
+    for (const o of C.SOLIDS) {
+      if (o.k === 'pond' || o.k === 'stream' || o.k === 'sea' || o.k === 'road') continue;
+      if (o.k === 'wall' || o.k === 'hull') { prism(Wl, o.x, o.y, o.w, o.h, 0, H3[o.k], false); continue; }
+      if (TREE3.has(o.k)) {
+        const tw = Math.max(10, Math.min(o.w, o.h) * .14), cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+        prism(Bk, cx - tw / 2, cy - tw / 2, tw, tw, 0, o.k === 'umbrella' ? 120 : 110, true);
+        prism(A, o.x, o.y, o.w, o.h, o.k === 'umbrella' ? 112 : 90, o.k === 'palm' ? 170 : o.k === 'umbrella' ? 126 : 220, true);
+        continue;
+      }
+      prism(A, o.x, o.y, o.w, o.h, 0, H3[o.k] || 50, ROUND3.has(o.k));
+    }
+    add(meshOf(T, A, new T.MeshLambertMaterial({ map: tex, vertexColors: true, side: T.DoubleSide })));
+    // 벽은 2D의 짙은 윗면 대신 밝은 회벽 (우주는 금속판)
+    add(meshOf(T, Wl, new T.MeshLambertMaterial({ color: C.MAP_ID === 'space' ? 0x9aa7bd : C.NIGHT ? 0xb9ab98 : 0xf1e7d6, vertexColors: true })));
+    const trunk = add(meshOf(T, Bk, new T.MeshLambertMaterial({ color: C.NIGHT ? 0x3a2c22 : 0x7a5236, vertexColors: true })));
+    // 숨는 곳: 안에 들어가면 사방이 잎/천으로 둘러싸인다 (양면)
+    const Hd = { p: [], u: [], c: [] };
+    for (const h of C.HIDES) prism(Hd, h.x, h.y, h.w, h.h, 0, HH3[h.k] || 60, ROUND3.has(h.k));
+    const hm = add(meshOf(T, Hd, new T.MeshLambertMaterial({ map: topTex, vertexColors: true, side: T.DoubleSide, alphaTest: .45, transparent: false })));
+    hm.castShadow = true; trunk.castShadow = true;
+    // 점령 지점
+    v3.cp = null;
+    if (app.g && app.g.cp) {
+      const cp = app.g.cp, ring = add(new T.Mesh(new T.RingGeometry(cp.r - 14, cp.r, 64), new T.MeshBasicMaterial({ color: 0xffffff, side: T.DoubleSide, transparent: true, opacity: .8 })));
+      ring.rotation.x = -Math.PI / 2; ring.position.set(cp.x, 1.5, cp.y);
+      const pole = add(new T.Mesh(new T.CylinderGeometry(3, 3, 160, 8), new T.MeshLambertMaterial({ color: TK.ink }))); pole.position.set(cp.x, 80, cp.y);
+      const flag = add(new T.Mesh(new T.PlaneGeometry(70, 44), new T.MeshLambertMaterial({ color: TK.red, side: T.DoubleSide }))); flag.position.set(cp.x + 36, 136, cp.y);
+      v3.cp = { ring, flag };
+    }
+    // 하늘·안개·빛
+    const night = C.NIGHT, tech = C.LAMP === 'tech';
+    if (night) S.background = new T.Color(tech ? 0x05070f : 0x0d0a1a);
+    else {
+      // 낮 하늘: 위는 진한 하늘색, 지평선은 옅게
+      const sk = document.createElement('canvas'); sk.width = 2; sk.height = 256; const sg = sk.getContext('2d'), gr = sg.createLinearGradient(0, 0, 0, 256);
+      gr.addColorStop(0, '#6fb6ee'); gr.addColorStop(.55, '#bfe6ff'); gr.addColorStop(1, '#eef7fc'); sg.fillStyle = gr; sg.fillRect(0, 0, 2, 256);
+      S.background = new T.CanvasTexture(sk); S.background.encoding = T.sRGBEncoding;
+    }
+    S.fog = night ? new T.Fog(tech ? 0x05070f : 0x0d0a1a, 140, tech ? 900 : 1100) : new T.Fog(0xe6f3fb, 1100, 3600);
+    v3.hemi.intensity = night ? (tech ? .28 : .34) : 1.0;
+    v3.hemi.color.set(night ? (tech ? 0x6f88c0 : 0x8c78c0) : 0xfffaf0);
+    v3.sun.intensity = night ? 0 : .62;
+    v3.torch.intensity = night ? 1.25 : 0;
+    for (const l of v3.lights) l.color.set(tech ? 0x60c8ff : C.LAMP === 'pumpkin' ? 0xff9a3c : 0xffa860);
+    v3.key = C.MAP_ID + W + app.gfx;
+  }
+  // 고양이 한 마리 = 몸 판 + 이름표 판. 매 프레임 지금 GIF 프레임을 작은 캔버스에 옮겨 그린다
+  function cat3D(i) {
+    if (v3.cats[i]) return v3.cats[i];
+    const T = window.THREE;
+    const cv = document.createElement('canvas'); cv.width = 160; cv.height = 200;
+    const tex = new T.CanvasTexture(cv); tex.encoding = T.sRGBEncoding;
+    const spr = new T.Sprite(new T.SpriteMaterial({ map: tex, transparent: true, alphaTest: .1 }));
+    const lc = document.createElement('canvas'); lc.width = 256; lc.height = 64;
+    const ltex = new T.CanvasTexture(lc); ltex.encoding = T.sRGBEncoding;
+    const lab = new T.Sprite(new T.SpriteMaterial({ map: ltex, transparent: true, depthWrite: false }));
+    v3.scene.add(spr, lab);
+    return (v3.cats[i] = { cv, g: cv.getContext('2d'), tex, spr, lc, lg: lc.getContext('2d'), ltex, lab, lkey: '' });
+  }
+  function render3D(dt, rdt) {
+    const T = window.THREE, g = app.g, me = g.cats[app.mySlot], myTeam = me ? me.team : -1, now = performance.now() / 1000;
+    if (!me) { render(dt, rdt); return; }
+    if (v3.key !== C.MAP_ID + W + app.gfx) build3D();
+    // 화면 크기
+    const pr = Math.min(devicePixelRatio || 1, touchUI ? 2 : 2.5);
+    if (v3.w !== vw || v3.h !== vh || v3.pr !== pr) { v3.w = vw; v3.h = vh; v3.pr = pr; v3.rr.setPixelRatio(pr); v3.rr.setSize(vw, vh, false); v3.cam.aspect = vw / vh; v3.cam.updateProjectionMatrix(); }
+    const ultra = app.gfx === 'ultra';
+    // 그림자는 초고퀄 낮 맵에서만. 드라이버가 못 버티면(계속 60ms 넘게) 그림자만 끈다 (해상도는 그대로)
+    const sh = ultra && !C.NIGHT && !v3.noShadow;
+    v3.rr.shadowMap.enabled = sh; v3.sun.castShadow = sh;
+    if (sh) { v3.slow = rdt > .06 ? (v3.slow || 0) + 1 : 0; if (v3.slow > 40) { v3.noShadow = true; v3.slow = 0; } }
+    // 카메라 = 내 고양이 눈
+    if (me) {
+      const moving = me.moving && !me.dead && !me.frozen; v3.bob += (moving ? rdt * 14 : 0);
+      const eye = me.dead ? 140 : me.hidden ? 34 : 46, by = moving ? Math.sin(v3.bob) * 2.2 : 0;
+      v3.cam.position.set(me.x, eye + by, me.y);
+      app.cam.x = me.x; app.cam.y = me.y;
+    }
+    const cp = Math.cos(v3.pitch), dir = [Math.cos(v3.yaw) * cp, Math.sin(v3.pitch), Math.sin(v3.yaw) * cp];
+    v3.cam.lookAt(v3.cam.position.x + dir[0], v3.cam.position.y + dir[1], v3.cam.position.z + dir[2]);
+    const shake = fx.shake * .5; if (shake) { v3.cam.position.x += (Math.random() - .5) * shake; v3.cam.position.y += (Math.random() - .5) * shake; }
+    fx.shake *= Math.exp(-rdt * 9); if (fx.shake < .3) fx.shake = 0;
+    if (v3.sun.castShadow) { v3.sun.position.set(me.x - 500, 900, me.y - 300); v3.sun.target.position.set(me.x, 0, me.y); }
+    else if (!C.NIGHT) { v3.sun.position.set(-500, 900, -300); v3.sun.target.position.set(0, 0, 0); }
+    // 밤: 가까운 등불 6개만 실제 빛으로 + 내 손전등
+    if (C.NIGHT) {
+      const near = C.LIGHTS.map(l => [hyp(l[0] - me.x, l[1] - me.y), l]).sort((a, b) => a[0] - b[0]).slice(0, v3.lights.length);
+      v3.lights.forEach((L, i) => { const n = near[i]; if (!n) { L.intensity = 0; return; } const [lx, ly, lr] = n[1]; L.position.set(lx, 70, ly); L.distance = lr * 1.5; L.intensity = 1.5 + Math.sin(now * 7 + lx) * .05; });
+      v3.torch.position.set(me.x + dir[0] * 20, 60, me.y + dir[2] * 20);
+    } else for (const L of v3.lights) L.intensity = 0;
+    // 고양이
+    const camRight = [-Math.sin(v3.yaw), Math.cos(v3.yaw)];
+    for (let i = 0; i < g.cats.length; i++) {
+      const c = g.cats[i], o = cat3D(i), v = c !== me && (myTeam < 0 || C.visibleTo(g, myTeam, c));
+      c._vis = c === me || (myTeam < 0 || C.visibleTo(g, myTeam, c));
+      o.spr.visible = o.lab.visible = v;
+      if (!v) continue;
+      const sp = sprites[c.id], a = sp && sp.anim, hh = c.r * (a && a.keyed ? 3.6 : 3.1), ww = hh * .8;
+      // 판 앞뒤가 바뀌지 않게, 화면 기준으로 왼쪽/오른쪽 보는 방향만 정한다
+      const face = (c.vx * camRight[0] + c.vy * camRight[1]) < -5 ? -1 : (c.vx * camRight[0] + c.vy * camRight[1]) > 5 ? 1 : (o.face || 1); o.face = face;
+      const x = o.g; x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, 160, 200);
+      if (a) { const fr = animFrame(a, c.t), k = Math.min(160 / a.w, 200 / a.h); x.translate(80, 200); x.scale(face, 1); if (!a.keyed) { x.fillStyle = '#fff'; rr(x, -a.w * k / 2, -a.h * k, a.w * k, a.h * k, 10); x.fill(); } x.drawImage(c.frozen ? icyFrame(fr) : fr, -a.w * k / 2, -a.h * k, a.w * k, a.h * k); }
+      else { x.translate(80, 128); drawCat(x, 0, 0, 52, app.inGame ? styleOf(c.id) : c.id % 4, c.t, c.moving, face, c.frozen); }
+      o.tex.needsUpdate = true;
+      const hop = c.moving && !c.frozen && !c.dead ? Math.abs(Math.sin(c.t * 14)) * 4 : 0;
+      o.spr.scale.set(ww, hh, 1); o.spr.position.set(c.x, hh / 2 + hop, c.y);
+      o.spr.material.opacity = c.dead ? .35 : c.camoT > 0 ? .35 : 1; o.spr.material.transparent = true;
+      // 이름표 (+ 총싸움이면 체력바)
+      const isCh = c.team === g.chaserTeam && g.mode === 'tag', s = app.lobby && app.lobby.slots[c.id];
+      const label = (isCh ? '술래 ' : '') + (s && s.p ? s.name : '봇'), hpk = isCombat(g) ? Math.round(clamp((c.hp || 0) / (c.maxHp || 100), 0, 1) * 20) : -1;
+      const lkey = label + '|' + hpk + '|' + c.team + (c.dead ? 'd' : '');
+      if (o.lkey !== lkey) {
+        o.lkey = lkey; const l = o.lg; l.clearRect(0, 0, 256, 64); l.font = '26px Jua, sans-serif'; l.textAlign = 'center'; l.textBaseline = 'middle';
+        const tw = Math.min(240, l.measureText(label).width + 26);
+        l.fillStyle = isCh ? TK.pink : TEAM_COL[c.team]; rr(l, 128 - tw / 2, 4, tw, 34, 17); l.fill(); l.strokeStyle = TK.ink; l.lineWidth = 3; l.stroke();
+        l.fillStyle = TK.ink; l.fillText(label, 128, 22);
+        if (hpk >= 0 && !c.dead) { l.fillStyle = TK.ink; rr(l, 78, 44, 100, 14, 6); l.fill(); l.fillStyle = hpk > 10 ? TK.green : hpk > 5 ? TK.yellow : TK.red; rr(l, 81, 47, 94 * hpk / 20, 8, 4); l.fill(); }
+        o.ltex.needsUpdate = true;
+      }
+      o.lab.scale.set(64, 16, 1); o.lab.position.set(c.x, hh + 16 + hop, c.y);
+    }
+    for (let i = g.cats.length; i < v3.cats.length; i++) if (v3.cats[i]) v3.cats[i].spr.visible = v3.cats[i].lab.visible = false;
+    // 총알 (낮게 떠서 날아간다)
+    const M4 = new T.Matrix4(), col = new T.Color(); let n = 0;
+    for (const sh of g.shots) { if (n >= 320) break; const r = sh.w === 'rocket' ? 2 : sh.w === 'sniper' ? 1.2 : 1; M4.makeScale(r, r, r).setPosition(sh.x, 30, sh.y); v3.shots.setMatrixAt(n, M4); v3.shots.setColorAt(n, col.set(WPN_COL[sh.w] || (sh.team ? TEAM_COL[1] : TEAM_COL[0]))); n++; }
+    for (const nd of g.nades) { if (n >= 320) break; const k = Math.min(1, nd.t / nd.T); M4.makeScale(2, 2, 2).setPosition(nd.sx + (nd.tx - nd.sx) * k, 20 + Math.sin(k * Math.PI) * 110, nd.sy + (nd.ty - nd.sy) * k); v3.shots.setMatrixAt(n, M4); v3.shots.setColorAt(n, col.set(TK.pink)); n++; }
+    v3.shots.count = n; v3.shots.instanceMatrix.needsUpdate = true; if (v3.shots.instanceColor) v3.shots.instanceColor.needsUpdate = true;
+    // 로봇청소기
+    n = 0;
+    for (const m of g.mobs) { if (n >= 120) break; M4.makeScale(m.r, m.kind === 'boss' ? 34 : 16, m.r).setPosition(m.x, m.kind === 'boss' ? 17 : 8, m.y); v3.mobs.setMatrixAt(n, M4); v3.mobs.setColorAt(n, col.set(m.hitT > 0 ? '#ffffff' : m.kind === 'boss' ? '#3a3226' : m.kind === 'big' ? '#343a40' : '#6c757d')); n++; }
+    v3.mobs.count = n; v3.mobs.instanceMatrix.needsUpdate = true; if (v3.mobs.instanceColor) v3.mobs.instanceColor.needsUpdate = true;
+    // 아이템 상자·블럭 벽
+    v3.pool = v3.pool || []; let pi = 0;
+    const piece = (geo, mat) => { let m = v3.pool[pi]; if (!m) { m = new T.Mesh(v3.boxGeo, v3.boxMat); m.castShadow = true; v3.scene.add(m); v3.pool[pi] = m; } m.visible = true; pi++; return m; };
+    for (const bx of g.boxes) { if (bx.t > 0) continue; const m = piece(); m.scale.set(1, 1, 1); m.position.set(bx.x, 30 + Math.sin(now * 3 + bx.u) * 6, bx.y); m.rotation.set(0, now * 1.5 + bx.u, 0); m.material = v3.boxMat; }
+    for (const bl of g.blocks) { const m = piece(); m.scale.set(bl.w / 30, 2.6, bl.h / 30); m.position.set(bl.x + bl.w / 2, 39, bl.y + bl.h / 2); m.rotation.set(0, 0, 0); m.material = v3.wallMat || (v3.wallMat = new T.MeshLambertMaterial({ color: TK.red })); }
+    for (let i = pi; i < v3.pool.length; i++) v3.pool[i].visible = false;
+    if (v3.cp && g.cp) { v3.cp.ring.material.color.set(g.cp.owner >= 0 ? TEAM_COL[g.cp.owner] : '#ffffff'); v3.cp.flag.rotation.y = Math.sin(now * 2) * .25; }
+    v3.rr.render(v3.scene, v3.cam);
+    // 화면 위 HUD
+    xg.setTransform(1, 0, 0, 1, 0, 0); xg.clearRect(0, 0, fxC.width, fxC.height);
+    drawScreen(g, me, myTeam, now, rdt, true);
+  }
+  // 1인칭 손: 총싸움이면 물총, 얼음땡이면 두 앞발. 걸을 때 흔들린다
+  function drawFpsHands(g, me, now) {
+    const sw = me.moving ? Math.sin(v3.bob) * 6 : 0, s = Math.min(vw, vh) / 420;
+    if (isCombat(g)) {
+      const kick = me.fireCd > 0 ? (me.fireCd / ((C.WEAPONS[me.wpn] || C.WEAPONS.pistol).rate)) * 14 : 0;
+      // 폰은 오른쪽에 버튼이 있어서 물총을 가운데 아래로
+      drawIcon(xg, 'gun', (touchUI ? vw * .52 : vw * .74) + sw, vh - (touchUI ? 52 : 70) * s + Math.abs(sw) * .5 + kick, (touchUI ? 110 : 150) * s, 1.6);
+      // 조준점
+      xg.strokeStyle = TK.white; xg.lineWidth = 2; xg.beginPath(); xg.arc(vw / 2, vh / 2, 9, 0, 7); xg.stroke();
+      xg.strokeStyle = TK.ink; xg.lineWidth = 1; xg.beginPath(); xg.arc(vw / 2, vh / 2, 11, 0, 7); xg.stroke();
+      xg.fillStyle = WPN_COL[me.wpn] || TK.red; xg.beginPath(); xg.arc(vw / 2, vh / 2, 2.5, 0, 7); xg.fill();
+    } else {
+      drawIcon(xg, 'paw', vw * .3 - sw, vh - 46 * s + Math.abs(sw) * .6, 110 * s, 1.6);
+      drawIcon(xg, 'paw', vw * .7 + sw, vh - 46 * s + Math.abs(sw) * .6, 110 * s, 1.6);
+    }
+  }
+
   /* ---------------- 메인 루프 ---------------- */
   useMap('house');
   renderRankBox(); $('ver').textContent = VERSION;
@@ -3571,6 +3980,7 @@
         const g = app.g, me = g.cats[app.mySlot];
         const inp = readInput();
         g.localInput[app.mySlot] = inp;
+        if (me && typeof inp.aa === 'number' && (inp.s0 || inp.s1 || inp.it)) { me.aimX = Math.cos(inp.aa); me.aimY = Math.sin(inp.aa); }
         if (me) for (const k of [0, 1]) if (inp['s' + k]) { me.aimX = me.aimX || 1; if (!C.useSkill(g, me, k)) skillDenied(k); }
         if (me && inp.it && !C.useItem(g, me)) itemDenied();
         if (me && inp.say && sayOk(app.mySlot)) C.say(g, me, 'tease');
@@ -3590,7 +4000,8 @@
     if (au.ctx) { musicUpdate(rdt, app.inGame && app.g && (app.g.phase === 'play' || app.g.phase === 'count')); heartbeat(rdt); }
     quickTick(rdt);
     if (app.bannerT > 0) { app.bannerT -= rdt; if (app.bannerT <= 0) $('banner').hidden = true; }
-    if (app.inGame || !document.hidden) { render(dt, rdt); hud(rdt); }
+    document.body.classList.toggle('fps', fpsOn());
+    if (app.inGame || !document.hidden) { if (fpsOn()) render3D(dt, rdt); else render(dt, rdt); hud(rdt); }
   }
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { mapCache = null; canopyCache.clear(); });
   requestAnimationFrame(t => { last = t; frame(t); });

@@ -422,3 +422,15 @@ body.touchui .skb.dash .ic .i,body.touchui.combat .skb.fire .ic .i{width:38px;he
 @keyframes wipe{0%{clip-path:circle(75% at 50% 50%)}55%{clip-path:circle(0% at 50% 50%)}100%{clip-path:circle(0% at 50% 50%)}}
 @media (prefers-reduced-motion:reduce){#wipe.on{animation:none;visibility:hidden}.btn,.modebtn,.mapbtn{transition:none}}
 body.touchui .skb .key{display:none}
+/* 설정 줄 (조작·그래픽) */
+.opts{display:flex;flex-direction:column;gap:8px;padding-top:4px;border-top:2px dashed var(--line)}
+.opt{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.opt>span{font-family:var(--display);font-size:.875rem;min-width:64px}
+body.touchui .pconly{display:none}
+/* 3D 1인칭 */
+#world3d{position:absolute;inset:0;width:100%;height:100%;display:none;pointer-events:none}
+body.fps #world3d{display:block}
+body.fps #world,body.fps #sprites{visibility:hidden}
+#lookZone{position:absolute;right:0;top:0;bottom:0;width:50%;pointer-events:auto;touch-action:none;display:none}
+body.fps #lookZone{display:block}
+body.fps #stickZone{width:50%}
