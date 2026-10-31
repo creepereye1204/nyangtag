@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="theme-color" content="#20302b">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%90%B1%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#1b1b19">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Cpath d=%22M5 27V8l6 5h10l6-5v19z%22 fill=%22%23ffc900%22 stroke=%22%231b1b19%22 stroke-width=%222.5%22 stroke-linejoin=%22round%22/%3E%3Ccircle cx=%2212%22 cy=%2219%22 r=%221.8%22 fill=%22%231b1b19%22/%3E%3Ccircle cx=%2220%22 cy=%2219%22 r=%221.8%22 fill=%22%231b1b19%22/%3E%3C/svg%3E">
 <title>냥태그</title>
-<meta name="description" content="고양이 밈 GIF로 하는 2:2 얼음땡 술래잡기. 방 코드로 친구 초대, 모바일 지원.">
+<meta name="description" content="고양이 밈 GIF로 술래잡기하고 물총 쏘는 파티 게임. 방 코드로 친구를 부르고, 폰에서도 돼요.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap">
@@ -28,14 +28,14 @@
     <div id="role">숨어!</div>
     <div id="feed"></div>
     <button class="hudbtn" id="quitBtn" type="button" aria-label="게임 나가기">나가기</button>
-    <button class="hudbtn" id="muteBtn" type="button" aria-label="소리 켜고 끄기">🔊</button>
+    <button class="hudbtn" id="muteBtn" type="button" aria-label="소리 켜고 끄기"><span class="ic" data-i="sound"></span></button>
     <div id="skills" hidden>
-      <button class="skb" id="sayBtn" type="button" aria-label="멘트 날리기"><span class="ic">💬</span><b class="nm">멘트</b><i class="key">T</i></button>
-      <button class="skb" id="skI" type="button" aria-label="아이템 쓰기"><span class="ic">🎁</span><b class="nm">아이템</b><i class="key">R</i><span class="cdt"></span><span class="cnt"></span><span class="next"></span></button>
-      <button class="skb" id="sk0" type="button" aria-label="스킬 1"><span class="ic">🧶</span><b class="nm">털뭉치</b><i class="key">Q</i><span class="cdt"></span></button>
-      <button class="skb" id="sk1" type="button" aria-label="스킬 2"><span class="ic">🌿</span><b class="nm">캣닢 가속</b><i class="key">E</i><span class="cdt"></span></button>
-      <button class="skb fire" id="fireBtn" type="button" aria-label="발사"><span class="ic">💧</span><b class="nm">발사</b></button>
-      <button class="skb dash" id="skD" type="button" aria-label="대시"><span class="ic">💨</span><b class="nm">대시</b><i class="key">Space</i><span class="cdt"></span></button>
+      <button class="skb" id="sayBtn" type="button" aria-label="멘트 날리기"><span class="ic" data-i="chat"></span><b class="nm">멘트</b><i class="key">T</i></button>
+      <button class="skb" id="skI" type="button" aria-label="아이템 쓰기"><span class="ic" data-i="gift"></span><b class="nm">아이템</b><i class="key">R</i><span class="cdt"></span><span class="cnt"></span><span class="next"></span></button>
+      <button class="skb" id="sk0" type="button" aria-label="스킬 1"><span class="ic" data-i="yarn"></span><b class="nm">털뭉치</b><i class="key">Q</i><span class="cdt"></span></button>
+      <button class="skb" id="sk1" type="button" aria-label="스킬 2"><span class="ic" data-i="leaf"></span><b class="nm">캣닢 가속</b><i class="key">E</i><span class="cdt"></span></button>
+      <button class="skb fire" id="fireBtn" type="button" aria-label="발사"><span class="ic" data-i="drop"></span><b class="nm">발사</b></button>
+      <button class="skb dash" id="skD" type="button" aria-label="대시"><span class="ic" data-i="dash"></span><b class="nm">대시</b><i class="key">Space</i><span class="cdt"></span></button>
     </div>
   </div>
 
@@ -49,9 +49,9 @@
     <div id="chatLog" aria-live="polite"></div>
     <form id="chatIn" hidden>
       <div id="chatQuick"></div>
-      <div class="crow"><input id="chatText" maxlength="60" autocomplete="off" placeholder="메시지 (Enter)" aria-label="채팅 메시지"><button class="btn small" type="submit">보내기</button></div>
+      <div class="crow"><input id="chatText" maxlength="60" autocomplete="off" placeholder="할 말 (Enter)" aria-label="채팅 메시지"><button class="btn small" type="submit">보내기</button></div>
     </form>
-    <button class="chatbtn" id="chatBtn" type="button" aria-label="채팅 열기">💬 채팅</button>
+    <button class="chatbtn" id="chatBtn" type="button" aria-label="채팅 열기"><span class="ic" data-i="chat"></span>채팅</button>
   </div>
 
   <div id="banner" hidden></div>
@@ -61,7 +61,7 @@
   <section class="screen" id="scrTitle">
     <div class="panel title">
       <h1 class="logo">냥태그</h1>
-      <p class="sub">얼음땡 · 물총싸움 · 청소기 습격 · 냥버워치<br><span>고양이 밈으로 최대 8 대 8</span></p>
+      <p class="sub">고양이 밈으로 술래잡기하고 물총 쏘는 게임<br><span>최대 8 대 8, 폰에서도 돼요</span></p>
       <button class="rankbox" id="rankBox" type="button" aria-label="내 랭크 보기"></button>
       <div class="me">
         <button class="avbtn" id="myAvBtn" type="button" aria-label="내 고양이 바꾸기"><span class="av" id="myAv"></span><span class="avlbl">고양이 바꾸기</span></button>
@@ -79,14 +79,15 @@
       <details class="how">
         <summary>어떻게 해요? <small id="ver" class="ver"></small></summary>
         <ul>
-          <li>술래팀이 닿으면 <b>얼음</b>, 같은 팀이 닿아 주면 <b>땡</b>(라운드당 2번까지, 3번째는 <b>꽁꽁</b>). 도망팀이 다 얼면 술래 승, 끝까지 버티면 도망 승.</li>
-          <li>술래의 덮치기는 <b>빨간 부채꼴</b>로 미리 보여요. 피하면 술래가 <b>헛방</b>으로 비틀! 들키는 순간엔 <b>깜짝 가속</b>.</li>
-          <li>풀숲·이불·상자·차 밑에 숨으면 안 보여요. <b>가만히</b> 있으면 더 안 들키고, 숨어서 움직이면 부스럭거려요.</li>
-          <li>술래는 조금 빠르고 <b>👃 냄새 추적</b>·<b>🐾 덮치기</b>, 도망팀은 <b>🧶 털뭉치 트랩</b>·<b>🌿 캣닢 가속</b>.</li>
-          <li>🎁 상자를 주우면 <b>🦎 보호색</b> · <b>🧱 블럭 쌓기</b> · <b>🐟 생선</b>(쿨타임 초기화) 중 하나!</li>
-          <li>모드: 🧊 얼음땡 · 🔫 냥냥 총싸움 · 🤖 로봇청소기 습격(협동) · 🦸 냥버워치(클래스 점령전)</li>
-          <li>PC: WASD 이동 · Space 대시 · Q/E 스킬 · R 아이템 · T 멘트 · Enter 채팅 · M 소리 · 총싸움 모드는 마우스 조준·클릭 발사</li>
-          <li>폰: 왼쪽 엄지 조이스틱, 오른쪽 버튼들 (진동 지원)</li>
+          <li>술래한테 닿으면 <b>얼음</b>. 같은 팀이 와서 닿아 주면 <b>땡</b>이에요. 한 라운드에 두 번까지만 녹을 수 있고, 세 번째엔 <b>꽁꽁</b> 얼어요.</li>
+          <li>도망팀이 다 얼면 술래팀이 이기고, 시간이 끝날 때까지 버티면 도망팀이 이겨요.</li>
+          <li>술래가 덮치기 직전엔 바닥에 <b>빨간 부채꼴</b>이 떠요. 피하면 술래가 헛방을 치고 잠깐 비틀거려요.</li>
+          <li>풀숲, 이불, 상자, 차 밑에 들어가면 안 보여요. 숨은 채로 움직이면 부스럭 소리가 나요.</li>
+          <li>술래는 <b>냄새</b>로 숨은 고양이를 찾고 <b>덮치기</b>를 써요. 도망팀은 <b>털뭉치</b>를 깔고 <b>캣닢</b>을 먹고 빨라져요.</li>
+          <li>상자를 주우면 보호색, 블럭, 생선 중 하나가 나와요. 생선을 먹으면 스킬을 바로 다시 쓸 수 있어요.</li>
+          <li>물총 팀전, 로봇청소기 막기(협동), 냥버워치(클래스 골라 점령전)도 있어요.</li>
+          <li>PC: WASD로 움직이고 Space로 대시해요. Q와 E는 스킬, R은 아이템, T는 멘트, Enter는 채팅, M은 소리예요. 총싸움에선 마우스로 조준하고 클릭해서 쏴요.</li>
+          <li>폰: 왼손 엄지로 조이스틱을 밀고, 오른손으로 버튼을 눌러요.</li>
         </ul>
       </details>
     </div>
@@ -117,7 +118,7 @@
       <div class="actions row">
         <button class="btn ghost" id="leaveBtn" type="button">나가기</button>
         <button class="btn ghost" id="lobbyAvBtn" type="button">고양이 바꾸기</button>
-        <button class="btn pink" id="startBtn" type="button">시작!</button>
+        <button class="btn pink" id="startBtn" type="button">시작</button>
       </div>
     </div>
   </section>
@@ -150,7 +151,7 @@
       <div class="pickhead"><h2>내 고양이 고르기</h2><button class="btn small ghost" id="pickClose" type="button">닫기</button></div>
       <h3>그림 고양이</h3>
       <div class="grid" id="drawGrid"></div>
-      <h3>초록 배경 고양이 밈 <small>(배경 자동으로 지워져요 · <span id="keyCount"></span>)</small></h3>
+      <h3>초록 배경 밈 <small>(<span id="keyCount"></span>, 배경은 게임에서 지워져요)</small></h3>
       <div class="grid" id="keyGrid"></div>
       <h3>인터넷 고양이 밈 GIF <small id="gifCount"></small></h3>
       <div class="grid" id="gifGrid"></div>
@@ -159,7 +160,7 @@
         <input id="urlIn" inputmode="url" autocomplete="off" placeholder="https://…gif" aria-label="GIF 주소">
         <button class="btn" id="urlBtn" type="button">적용</button>
       </div>
-      <p class="hint">GIPHY나 Tenor에서 GIF를 길게 눌러 ‘이미지 주소 복사’ 후 붙여 넣으면 돼요. ‘고양이 밈 크로마키’처럼 초록 배경 GIF면 게임에서 초록색이 자동으로 지워져요. 같은 방 친구들한테도 그 GIF로 보여요.</p>
+      <p class="hint">GIPHY나 Tenor에서 GIF를 길게 눌러 ‘이미지 주소 복사’를 하고 여기에 붙여 넣으세요. 초록 배경 GIF는 게임에서 초록이 지워져요. 같은 방 친구들 화면에도 이 GIF로 나와요.</p>
     </div>
   </section>
 </div>

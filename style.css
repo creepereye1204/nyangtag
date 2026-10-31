@@ -32,7 +32,7 @@ button,input{font:inherit;color:inherit}
 
 .screen{position:absolute;inset:0;display:grid;place-items:center;overflow:auto;
   padding:calc(16px + var(--sat)) max(16px,var(--sar)) calc(16px + var(--sab)) max(16px,var(--sal));
-  background:radial-gradient(ellipse at center,rgba(20,30,26,.25),rgba(20,30,26,.6))}
+  background:rgba(27,27,25,.55)}
 .panel{background:var(--panel);color:var(--ink);border-radius:20px;padding:22px;width:min(460px,100%);
   box-shadow:0 0 0 3px var(--ink),0 12px 0 rgba(0,0,0,.25);display:flex;flex-direction:column;gap:14px}
 .logo{font-family:var(--display);font-weight:400;font-size:clamp(3rem,13vw,4.6rem);line-height:1;margin:0;text-align:center;
@@ -128,7 +128,7 @@ body.touchui .hudbtn{top:calc(96px + var(--sat));bottom:auto}
   border-radius:12px;padding:10px 16px;font-size:.92rem;opacity:0;transition:opacity .2s;pointer-events:none;max-width:calc(100% - 32px);z-index:20}
 #toast.on{opacity:1}
 @media (prefers-reduced-motion:reduce){#toast{transition:none}}
-#hud::before{content:"";position:absolute;left:0;right:0;top:0;height:calc(110px + var(--sat));background:linear-gradient(rgba(10,18,16,.55),rgba(10,18,16,0))}
+#hud::before{content:"";position:absolute;left:0;right:0;top:0;height:calc(110px + var(--sat));background:none}
 
 .pick h3 small{font-family:var(--body);font-size:.75rem}
 .cell.keyed{background:repeating-conic-gradient(#e6ece9 0 25%,#f7faf8 0 50%) 0 0/16px 16px}
@@ -138,12 +138,12 @@ body.touchui .hudbtn{top:calc(96px + var(--sat));bottom:auto}
 #muteBtn{left:calc(max(10px,var(--sal)) + 64px)}
 #skills{position:absolute;left:50%;bottom:calc(14px + var(--sab));transform:translateX(-50%);display:flex;gap:10px;align-items:flex-end;pointer-events:none}
 .skb{pointer-events:auto;position:relative;width:74px;height:74px;border-radius:20px;border:0;cursor:pointer;touch-action:none;
-  background:linear-gradient(#fff,#f1e9df);color:var(--ink);box-shadow:0 5px 0 rgba(0,0,0,.35),inset 0 0 0 3px #2a9d8f;
+  background:#fff;color:var(--ink);box-shadow:0 5px 0 rgba(0,0,0,.35),inset 0 0 0 3px #2a9d8f;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;overflow:hidden;font-family:var(--display);--cd:0}
 .skb.chase{box-shadow:0 5px 0 rgba(0,0,0,.35),inset 0 0 0 3px #ff3b6b}
-.skb.dash{box-shadow:0 5px 0 var(--pinkd),inset 0 0 0 3px var(--pink);background:linear-gradient(#ff7aa6,var(--pink));color:#fff}
+.skb.dash{box-shadow:0 5px 0 var(--pinkd),inset 0 0 0 3px var(--pink);background:var(--pink);color:#fff}
 #skI{box-shadow:0 5px 0 rgba(0,0,0,.35),inset 0 0 0 3px #b5179e}
-#skI.has{background:linear-gradient(#ffe8fb,#ffc9f1)}
+#skI.has{background:var(--yellow)}
 #sayBtn{width:56px;height:56px;border-radius:16px;box-shadow:0 4px 0 rgba(0,0,0,.35),inset 0 0 0 3px #8d99ae}
 #sayBtn .ic{font-size:1.3rem}#sayBtn .nm{font-size:.62rem}
 .skb .ic{font-size:1.75rem;line-height:1}
@@ -188,12 +188,12 @@ body.touchui #stickZone{width:50%}
 #skI .next{position:absolute;bottom:-1px;right:4px;font-size:.7rem;opacity:.85}
 
 /* 빠른 대전 / 랭크 */
-.btn.quick{background:linear-gradient(135deg,#7b2ff7,#f107a3);color:#fff;box-shadow:0 4px 0 #5a1aa8;display:flex;flex-direction:column;align-items:center;line-height:1.1}
+.btn.quick{background:var(--yellow);color:#fff;box-shadow:0 4px 0 #5a1aa8;display:flex;flex-direction:column;align-items:center;line-height:1.1}
 .btn.quick small{font-family:var(--body);font-size:.72rem;opacity:.9}
 .rankbox{border:0;background:var(--line);border-radius:14px;padding:8px 12px;display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:center;cursor:pointer;text-align:left;color:var(--ink);font-family:var(--body)}
 .rankbox .rinfo{font-size:.8rem;color:var(--muted)}
 .rankbox .lpbar{grid-column:1/-1;height:6px;border-radius:9px;background:rgba(0,0,0,.12);position:relative;overflow:hidden}
-.rankbox .lpbar::after{content:"";position:absolute;inset:0;width:calc(var(--lp) * 100%);background:linear-gradient(90deg,#f9c74f,#f107a3);border-radius:9px}
+.rankbox .lpbar::after{content:"";position:absolute;inset:0;width:calc(var(--lp) * 100%);background:var(--green);border-radius:9px}
 .tbadge{display:inline-block;color:#fff;font-family:var(--display);font-size:.85rem;border-radius:99px;padding:3px 10px;white-space:nowrap;text-shadow:0 1px 0 rgba(0,0,0,.35)}
 .tbadge.big{font-size:1.25rem;padding:6px 16px}
 .tierchip{margin-left:auto;flex:none;color:#fff;font-family:var(--display);font-size:.7rem;border-radius:8px;padding:2px 6px}
@@ -242,7 +242,7 @@ body.touchui #feed{top:calc(250px + var(--sat))}
 #feed .fd{background:rgba(20,28,26,.72);color:#fff;border-radius:10px;padding:4px 10px;font-size:.82rem;font-family:var(--body);transition:opacity .6s}
 #feed .fd b{font-family:var(--display);font-weight:400}
 #feed .fd.out{opacity:0}
-.skb.fire{display:none;background:linear-gradient(#4cc9f0,#3a86ff);color:#fff;box-shadow:0 5px 0 #23549c,inset 0 0 0 3px #a9def9}
+.skb.fire{display:none;background:var(--blue);color:#fff;box-shadow:0 5px 0 #23549c,inset 0 0 0 3px #a9def9}
 body.touchui.combat .skb.fire{display:flex;grid-area:fire;width:96px;height:96px;border-radius:50%}
 body.touchui.combat #skills{grid-template-areas:". say it" "s0 s1 fire" ". . dash"}
 body.touchui.combat .skb.dash{width:66px;height:66px}
@@ -281,81 +281,144 @@ body.touchui #chatBox{bottom:auto;top:calc(140px + var(--sat));width:min(300px,5
 .skb.fire .ic,.skb.fire .nm{transform:translate(var(--ax),var(--ay));transition:transform .05s}
 .skb.fire::before{content:"";position:absolute;inset:8px;border-radius:50%;border:2px dashed rgba(255,255,255,.45);pointer-events:none}
 
-/* ===== 손으로 만든 느낌: 두꺼운 잉크 테두리 · 번지지 않는 그림자 · 테이프 · 단색 ===== */
-:root{--paper:#fff8ea; --tape:rgba(255,226,140,.78); --tomato:#ef5a3c; --tomatod:#a8331d; --mustard:#ffc93c; --mint:#3fbf9b}
-@media (prefers-color-scheme: dark){:root{--paper:#232c29; --tape:rgba(255,215,120,.35)}}
-.panel{position:relative;background-color:var(--paper);
-  background-image:radial-gradient(color-mix(in srgb,var(--ink) 9%,transparent) 1px,transparent 1.2px);background-size:18px 18px;
-  border-radius:18px 22px 16px 24px;box-shadow:0 0 0 3px var(--ink),7px 8px 0 3px var(--ink)}
-.panel.title{transform:rotate(-.6deg)}
-.panel::before,.panel::after{content:"";position:absolute;top:-14px;width:92px;height:26px;background:var(--tape);
-  box-shadow:0 1px 0 rgba(0,0,0,.08);pointer-events:none;z-index:1}
-.panel::before{left:26px;transform:rotate(-7deg)}
-.panel::after{right:30px;transform:rotate(5deg);width:70px}
-.screen{background:rgba(18,26,23,.42)}
-.logo{color:var(--mustard);-webkit-text-stroke:3px var(--ink);paint-order:stroke fill;text-shadow:4px 5px 0 var(--ink);
-  letter-spacing:.02em;transform:rotate(-2.5deg);margin-top:4px}
-.sub{font-family:var(--display);color:var(--ink);font-size:1rem;line-height:1.35}
-.sub span{font-family:var(--body);font-size:.82rem;color:var(--muted)}
-.btn{border:2.5px solid var(--ink);box-shadow:3px 4px 0 var(--ink);border-radius:12px 14px 12px 15px}
-.btn:active{transform:translate(2px,3px);box-shadow:1px 1px 0 var(--ink)}
-.btn.pink{background:var(--tomato);box-shadow:3px 4px 0 var(--ink)}
-.btn.quick{background:var(--mustard);color:var(--ink);box-shadow:3px 4px 0 var(--ink);font-size:1.3rem;padding:12px 18px}
-.btn.quick small{opacity:.75}
-.btn.ghost{background:var(--paper);box-shadow:3px 4px 0 var(--ink)}
-.btn.team0{background:var(--cheese)}.btn.team1{background:var(--mack)}
-input{border:2.5px solid var(--ink);background:color-mix(in srgb,var(--paper) 70%,#fff)}
-.av{border:2.5px solid var(--ink);box-shadow:2px 3px 0 var(--ink);background:color-mix(in srgb,var(--mustard) 35%,var(--paper))}
-.rankbox{background:color-mix(in srgb,var(--paper) 60%,#fff);border:2.5px dashed color-mix(in srgb,var(--ink) 55%,transparent)}
-.rankbox .lpbar{border:2px solid var(--ink);height:10px;background:var(--paper)}
-.rankbox .lpbar::after{background:var(--mint);border-radius:0}
-.how summary{text-decoration:underline wavy color-mix(in srgb,var(--tomato) 60%,transparent);text-underline-offset:4px}
+/* ===== 디자인 시스템 (DESIGN.md) =====
+   참고: Gumroad(선·그림자·알약 버튼), Untitled Goose Game(단색·여백)
+   규칙: 선 2px ink · 그림자는 흐림 없이 밀기만 · 그라데이션 없음 · 강조색 두 가지까지 */
+:root{
+  --ink:#1b1b19; --paper:#f4f1ea; --white:#fff; --yellow:#ffc900; --pink:#ff90e8; --red:#e2442f;
+  --green:#23a094; --blue:#4f8fe8; --ice:#bfe6ff; --muted:#6b6862; --line:#d9d4c8;
+  --cheese:#ff9b3d; --mack:#4f8fe8; --panel:var(--paper); --bg:#1b1b19;
+  --bd:2px solid var(--ink); --sh:4px 4px 0 var(--ink); --sh-s:2px 2px 0 var(--ink);
+  --r-s:4px; --r-m:12px; --r-card:16px 16px 16px 4px; --pill:999px;
+}
+/* 게임 화면이라 패널은 늘 밝은 종이색 (다크 모드에서도 같은 브랜드) */
+@media (prefers-color-scheme: dark){:root{--panel:var(--paper);--ink:#1b1b19;--muted:#6b6862;--line:#d9d4c8;color-scheme:light}}
+.i{width:1.6em;height:1.6em;stroke:var(--ink);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;flex:none;display:block}
 
-/* 로비 카드 */
-.tcol{border:2.5px solid var(--ink);box-shadow:3px 4px 0 var(--ink)}
-.tcol.t0{background:color-mix(in srgb,var(--cheese) 22%,var(--paper))}.tcol.t1{background:color-mix(in srgb,var(--mack) 22%,var(--paper))}
-.slot{border:2px solid color-mix(in srgb,var(--ink) 35%,transparent);background:var(--paper)}
-.slot.mine{border-color:var(--ink);box-shadow:2px 3px 0 var(--tomato)}
-.slot .av{box-shadow:none;border-width:2px}
-.modebtn,.clsbtn,.mapbtn,.szbtn{border:2.5px solid color-mix(in srgb,var(--ink) 30%,transparent);background:var(--paper);transition:transform .08s}
-.modebtn:hover:not(:disabled),.mapbtn:hover:not(:disabled),.clsbtn:hover{transform:translate(-1px,-2px) rotate(-.5deg)}
-.modebtn.on,.clsbtn.on,.mapbtn.on{border-color:var(--ink);background:color-mix(in srgb,var(--mustard) 30%,var(--paper));box-shadow:3px 4px 0 var(--ink)}
-.modebtn .mi,.clsbtn .mi{width:34px;height:34px;display:grid;place-items:center;border:2px solid var(--ink);border-radius:50%;background:var(--paper);font-size:1.1rem;margin-bottom:3px}
-.szbtn.on{background:var(--tomato);border-color:var(--ink);box-shadow:2px 3px 0 var(--ink)}
-.mapbtn{padding:6px 6px 8px;gap:3px}
-.mapbtn .thumb{width:100%;aspect-ratio:3/2;border-radius:8px;border:2px solid var(--ink);display:block;object-fit:cover;background:#556}
-.mapbtn .mi{position:absolute;margin:4px 0 0 4px;font-size:1rem;background:var(--paper);border:2px solid var(--ink);border-radius:50%;width:28px;height:28px;display:grid;place-items:center}
-.mapbtn{position:relative}
-.mapbtn.on .thumb{border-color:var(--tomato)}
-.lobby.panel::before,.lobby.panel::after,.pick.panel::before,.pick.panel::after{display:none}
-.skb.fire{background:#3a86ff;box-shadow:0 5px 0 #1d3f80,inset 0 0 0 3px #a9def9}
-.skb.dash{background:var(--pink)}
-#skI.has{background:#ffd9f4}
-/* 게임 중 글자도 같은 손맛으로 */
-#banner{-webkit-text-stroke:5px #1e2a26;paint-order:stroke fill;text-shadow:3px 4px 0 #1e2a26;letter-spacing:.01em}
-#banner small{-webkit-text-stroke:0;text-shadow:0 2px 0 rgba(0,0,0,.6);display:inline-block;background:#1e2a26;color:#fff8ea;border-radius:8px;padding:3px 10px;margin-top:10px}
-#role{background:#fff8ea;color:#1e2a26;border:2.5px solid #1e2a26;box-shadow:2px 3px 0 #1e2a26}
-#toast{background:#fff8ea;color:#1e2a26;border:2.5px solid #1e2a26;box-shadow:3px 4px 0 #1e2a26}
-.hudbtn,.chatbtn{background:#fff8ea;color:#1e2a26;border:2px solid #1e2a26;box-shadow:2px 2px 0 #1e2a26}
-#feed .fd{background:#fff8ea;color:#1e2a26;border:2px solid #1e2a26}
-/* 게임 중 버튼·조이스틱도 종이+잉크로 */
-.skb{background:#fff8ea;border:2.5px solid #1e2a26;box-shadow:3px 4px 0 #1e2a26;border-radius:18px 20px 17px 21px}
-.skb.chase{box-shadow:3px 4px 0 #1e2a26,inset 0 0 0 3px #ff3b6b}
-#skI{box-shadow:3px 4px 0 #1e2a26}
-#skI.has{background:#ffd9f4}
-#sayBtn{box-shadow:2px 3px 0 #1e2a26;background:#fff8ea}
-.skb.dash{background:var(--tomato);color:#fff8ea;box-shadow:3px 4px 0 #1e2a26}
-.skb.fire{background:#3a86ff;box-shadow:3px 4px 0 #1e2a26,inset 0 0 0 3px #a9def9}
-.skb:active{transform:translate(2px,3px);box-shadow:1px 1px 0 #1e2a26}
-.skb .key{font-family:var(--display);opacity:.45}
-#stickBase{background:rgba(255,248,234,.12);box-shadow:none;border:3px dashed rgba(255,248,234,.6)}
-#stickZone.active #stickBase{border-style:solid;border-color:#fff8ea}
-#stickKnob{background:#fff8ea;border:3px solid #1e2a26;box-shadow:2px 3px 0 #1e2a26}
-#stickKnob::after{content:"";position:absolute;inset:14px;border-radius:50%;border:2px solid rgba(30,42,38,.25)}
-#timer{-webkit-text-stroke:4px #1e2a26;paint-order:stroke fill;text-shadow:3px 4px 0 #1e2a26}
-.hteam b{-webkit-text-stroke:3px #1e2a26;paint-order:stroke fill;text-shadow:2px 3px 0 #1e2a26}
-/* 판 시작·끝: 잉크 원이 닫혔다 열린다 */
-#wipe{position:fixed;inset:0;z-index:50;pointer-events:none;background:#1e2a26;clip-path:circle(0% at 50% 50%);visibility:hidden}
+/* 패널 */
+.screen{background:rgba(27,27,25,.55)}
+.panel{background:var(--paper);border:var(--bd);border-radius:var(--r-card);box-shadow:6px 6px 0 var(--ink);gap:16px;padding:24px}
+.logo{color:var(--ink);font-size:clamp(3rem,13vw,4.5rem);letter-spacing:-.02em;text-shadow:none;text-align:left;line-height:.95}
+.logo::after{content:"";display:block;width:3.1em;height:.22em;margin-top:.06em;background:var(--yellow);border:var(--bd);border-radius:var(--pill)}
+.sub{text-align:left;color:var(--ink);font-family:var(--display);font-size:1.25rem;line-height:1.3;margin:0}
+.sub span{font-family:var(--body);font-size:.875rem;color:var(--muted)}
+
+/* 버튼: 알약, 선 2px, 밀린 그림자 */
+.btn{border:var(--bd);border-radius:var(--pill);padding:12px 20px;background:var(--ink);color:var(--paper);box-shadow:none;font-size:1.125rem;
+  transition:transform .08s,box-shadow .08s}
+.btn:hover:not(:disabled){transform:translate(-2px,-2px);box-shadow:var(--sh)}
+.btn:active:not(:disabled){transform:none;box-shadow:none}
+.btn.pink{background:var(--pink);color:var(--ink);box-shadow:none}
+.btn.quick{background:var(--yellow);color:var(--ink);box-shadow:var(--sh);font-size:1.25rem;padding:14px 20px;display:flex;flex-direction:column;align-items:center;line-height:1.1}
+.btn.quick small{font-family:var(--body);font-size:.75rem;opacity:.8}
+.btn.ghost{background:var(--white);color:var(--ink);box-shadow:none}
+.btn.small{padding:8px 14px;font-size:.875rem}
+.btn.team0{background:var(--cheese);color:var(--ink)}.btn.team1{background:var(--mack);color:var(--ink)}
+.btn:focus-visible,input:focus-visible,.avbtn:focus-visible,.cell:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+input{border:var(--bd);border-radius:var(--r-s);background:var(--white);color:var(--ink)}
+.av{border:var(--bd);border-radius:var(--r-m);background:var(--yellow);box-shadow:none}
+.avlbl,.field{color:var(--muted)}
+.how{color:var(--ink)}
+.how summary{text-decoration:underline;text-underline-offset:4px}
+.how ul{gap:6px;color:var(--muted);line-height:1.5}
+.how b{color:var(--ink);font-weight:400;font-family:var(--display)}
+.ver{color:var(--muted)}
+
+/* 랭크 */
+.rankbox{background:var(--white);border:var(--bd);border-radius:var(--r-m);padding:8px 12px}
+.rankbox .lpbar{border:var(--bd);height:12px;background:var(--white);border-radius:var(--pill)}
+.rankbox .lpbar::after{background:var(--green);border-radius:0}
+.tbadge{color:var(--ink);text-shadow:none;border:var(--bd)}
+.tierchip{color:var(--ink);border:1.5px solid var(--ink)}
+.hist li,.board li{background:var(--white);border:var(--bd);border-radius:var(--r-s)}
+.hist li.w{box-shadow:inset 6px 0 0 var(--green)}.hist li.l{box-shadow:inset 6px 0 0 var(--red)}
+.board li.me{background:var(--yellow)}
+.lpd.up{color:var(--green)}.lpd.down{color:var(--red)}.promo.up{color:var(--ink);background:var(--yellow);border:var(--bd);border-radius:var(--pill);padding:2px 14px}
+
+/* 로비 */
+.code{letter-spacing:.12em}
+.tcol{border:var(--bd);border-radius:var(--r-m);background:var(--white)}
+.tcol.t0{background:var(--white);box-shadow:inset 0 6px 0 var(--cheese)}.tcol.t1{background:var(--white);box-shadow:inset 0 6px 0 var(--mack)}
+.t0 h2,.t1 h2{color:var(--ink)}
+.slot{background:var(--paper);border:1.5px solid var(--line);border-radius:var(--r-s)}
+.slot.mine{border:var(--bd);background:var(--yellow);box-shadow:none}
+.slot .av{border-width:1.5px;border-radius:var(--r-s)}
+.modebtn,.clsbtn,.mapbtn,.szbtn{background:var(--white);border:var(--bd);border-radius:var(--r-m);box-shadow:none;transition:transform .08s,box-shadow .08s}
+.modebtn:hover:not(:disabled),.mapbtn:hover:not(:disabled),.clsbtn:hover,.szbtn:hover:not(:disabled){transform:translate(-2px,-2px);box-shadow:var(--sh)}
+.modebtn.on,.clsbtn.on,.mapbtn.on{background:var(--yellow);box-shadow:var(--sh);transform:translate(-2px,-2px)}
+.modebtn .mi,.clsbtn .mi{font-size:1rem;margin-bottom:4px}
+.modebtn .mi .i,.clsbtn .mi .i{width:28px;height:28px}
+.modebtn small,.clsbtn small,.mapbtn small{color:var(--muted)}
+.modebtn.on small,.clsbtn.on small,.mapbtn.on small{color:var(--ink)}
+.szbtn{border-radius:var(--pill);padding:6px 12px}
+.szbtn.on{background:var(--ink);color:var(--paper)}
+.szl{color:var(--ink)}
+.mapbtn{position:relative;padding:6px 6px 10px;gap:4px}
+.mapbtn .thumb{width:100%;aspect-ratio:3/2;border-radius:var(--r-s);border:var(--bd);display:block;object-fit:cover;background:#556}
+.mapbtn .mi{display:none}
+.cell{border:var(--bd);border-radius:var(--r-m);background:var(--white)}
+.cell.on{box-shadow:var(--sh);outline:3px solid var(--yellow);outline-offset:-5px}
+.cell.keyed{background:repeating-conic-gradient(#ece8de 0 25%,#fff 0 50%) 0 0/16px 16px}
+.lobby.panel,.pick.panel{border-radius:var(--r-card)}
+
+/* 게임 화면 */
+#hud::before{background:none}
+.hudbar{text-shadow:none;color:var(--white)}
+#timer{color:var(--white);-webkit-text-stroke:5px var(--ink);paint-order:stroke fill;text-shadow:3px 3px 0 var(--ink)}
+#timer.low{color:var(--red)}
+.hteam span,#roundTxt{color:var(--white);-webkit-text-stroke:3px var(--ink);paint-order:stroke fill;font-family:var(--display)}
+#roundTxt{font-size:.875rem;opacity:1;margin-top:2px}
+.hteam b{-webkit-text-stroke:4px var(--ink);paint-order:stroke fill;text-shadow:3px 3px 0 var(--ink)}
+.hteam.a b{color:var(--cheese)}.hteam.b b{color:var(--mack)}
+.tagchip{background:var(--pink);color:var(--ink);border:var(--bd);font-family:var(--display)}
+#role{background:var(--white);color:var(--ink);border:var(--bd);box-shadow:var(--sh-s);display:flex;align-items:center;gap:6px}
+#role .i{width:1.25em;height:1.25em}
+.hudbtn,.chatbtn{background:var(--white);color:var(--ink);border:var(--bd);border-radius:var(--pill);box-shadow:var(--sh-s);font-family:var(--display);display:flex;align-items:center;gap:4px;padding:6px 12px}
+.hudbtn .i,.chatbtn .i{width:1.3em;height:1.3em}
+#muteBtn{padding:5px 8px}
+#feed .fd{background:var(--white);color:var(--ink);border:var(--bd);border-radius:var(--pill);display:flex;align-items:center;gap:4px}
+#feed .fd .i{width:1.2em;height:1.2em}
+#toast{background:var(--ink);color:var(--paper);border:var(--bd);border-radius:var(--pill);box-shadow:none}
+#banner{color:var(--white);-webkit-text-stroke:6px var(--ink);paint-order:stroke fill;text-shadow:4px 4px 0 var(--ink);letter-spacing:-.01em}
+#banner .i{display:inline-block;width:1em;height:1em;vertical-align:-.1em;stroke-width:2.4;margin-right:.15em}
+#banner small{-webkit-text-stroke:0;text-shadow:none;display:inline-block;background:var(--ink);color:var(--paper);border-radius:var(--pill);padding:4px 14px;margin-top:12px;font-size:.45em}
+#chatLog .cm{background:var(--white);color:var(--ink);border:1.5px solid var(--ink);border-radius:var(--r-s)}
+#chatIn{background:var(--paper);border:var(--bd);border-radius:var(--r-m)}
+#chatQuick button{background:var(--white);border:1.5px solid var(--ink);color:var(--ink)}
+
+/* 스킬 버튼 */
+.skb{background:var(--white);color:var(--ink);border:var(--bd);border-radius:var(--r-m);box-shadow:var(--sh);gap:2px}
+.skb .ic .i{width:30px;height:30px}
+.skb .nm{font-size:.75rem}
+.skb .key{font-family:var(--display);opacity:.5}
+.skb.chase{background:var(--pink)}
+.skb.dash{background:var(--pink);color:var(--ink);box-shadow:var(--sh)}
+.skb.fire{background:var(--blue);color:var(--ink);box-shadow:var(--sh)}
+.skb.fire::before{border-color:rgba(27,27,25,.35)}
+#skI{box-shadow:var(--sh)}#skI.has{background:var(--yellow)}
+#skI .cnt{color:var(--ink)}
+#sayBtn{box-shadow:var(--sh-s);background:var(--white)}
+#sayBtn .ic .i{width:24px;height:24px}
+.skb:active{transform:translate(4px,4px);box-shadow:none}
+.skb::after{background:conic-gradient(rgba(27,27,25,.55) calc(var(--cd) * 360deg),transparent 0)}
+.skb.cool{filter:none}.skb.cool .ic{opacity:.45}
+.skb .cdt{text-shadow:none;-webkit-text-stroke:4px var(--ink);paint-order:stroke fill;font-family:var(--display)}
+.skb .next .i{display:inline-block;width:14px;height:14px;stroke-width:2.5}
+body.touchui .skb.dash .ic .i,body.touchui.combat .skb.fire .ic .i{width:38px;height:38px}
+@media (max-height:500px){body.touchui .skb .ic .i{width:22px;height:22px}body.touchui .skb.dash .ic .i,body.touchui.combat .skb.fire .ic .i{width:28px;height:28px}}
+#stickBase{background:rgba(255,255,255,.1);box-shadow:none;border:2px dashed rgba(255,255,255,.7);opacity:.7}
+#stickZone.active #stickBase{border-style:solid;border-color:var(--white);opacity:1}
+#stickKnob{background:var(--white);border:var(--bd);box-shadow:var(--sh-s)}
+
+/* 결과 */
+.over{text-align:left;align-items:stretch}
+.over .big{font-size:2.5rem;letter-spacing:-.02em}
+.over .final{font-size:4.5rem;line-height:1}
+.overrank{align-items:flex-start}
+
+/* 판 시작: 잉크 원이 열리며 게임이 보인다 */
+#wipe{position:fixed;inset:0;z-index:50;pointer-events:none;background:var(--ink);clip-path:circle(0% at 50% 50%);visibility:hidden}
 #wipe.on{visibility:visible;animation:wipe .7s cubic-bezier(.7,0,.3,1) forwards}
 @keyframes wipe{0%{clip-path:circle(75% at 50% 50%)}55%{clip-path:circle(0% at 50% 50%)}100%{clip-path:circle(0% at 50% 50%)}}
-@media (prefers-reduced-motion:reduce){#wipe.on{animation:none;visibility:hidden}}
+@media (prefers-reduced-motion:reduce){#wipe.on{animation:none;visibility:hidden}.btn,.modebtn,.mapbtn{transition:none}}
+body.touchui .skb .key{display:none}
